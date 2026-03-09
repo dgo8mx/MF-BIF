@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEMARNAT Durango · Dashboard MRV · Brigadas Forestales</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --v:#2d7a2d;--vo:#1a5c1a;--vc:#63BC47;--vp:#e8f5e2;
+  --a:#0F4378;--ao:#082d52;--ac:#1a6abf;--ap:#e3edf8;
+  --d:#C8961A;--dc:#E4B740;--dp:#fff8e1;
+  --r:#c0392b;--rp:#fdf0f0;
+  --n:#151818;--g:#660636;
+  --b:#fff;--c:#F7F8F5;
+  --gl:#dde3e0;--gs:#f0f2ef;--gt:#5a6a5a;--to:#1e2d1e;
+  --sh:0 2px 16px rgba(15,67,120,.08);--shh:0 8px 32px rgba(15,67,120,.14);
+  --rad:8px;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;font-family:"Montserrat",sans-serif;font-size:13px;color:var(--to);background:var(--n);overflow:hidden}
+
+/* ─── LAYOUT ─────────────────────────────────────────── */
+.app{display:grid;grid-template-rows:auto 1fr;height:100vh}
+.topbar{background:var(--vo);display:flex;align-items:center;padding:0 18px;gap:14px;min-height:54px;border-bottom:3px solid var(--vc);z-index:100;flex-shrink:0;flex-wrap:wrap}
+.topbar-logo{font-weight:800;font-size:17px;color:#fff;letter-spacing:2px;flex-shrink:0}
+.topbar-title{color:rgba(255,255,255,.8);font-size:11px;font-weight:600;letter-spacing:.5px;flex-shrink:0}
+.topbar-sep{width:1px;height:28px;background:rgba(255,255,255,.2);flex-shrink:0}
+.topbar-badge{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:5px;padding:5px 14px;text-align:center;flex-shrink:0}
+.topbar-badge .bl{font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.55)}
+.topbar-badge .bv{font-size:16px;font-weight:800;color:#fff;line-height:1.1}
+.topbar-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.pulse{width:10px;height:10px;border-radius:50%;background:#e74c3c;flex-shrink:0;transition:background .3s}
+.pulse.live{background:var(--vc);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(99,188,71,.5)}60%{box-shadow:0 0 0 9px rgba(99,188,71,0)}}
+.live-label{font-size:10.5px;font-weight:700;color:rgba(255,255,255,.75);letter-spacing:.5px}
+.tbtn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:4px;padding:6px 13px;color:rgba(255,255,255,.85);font-size:10.5px;font-weight:600;cursor:pointer;font-family:"Montserrat",sans-serif;letter-spacing:.3px;transition:all .18s;white-space:nowrap}
+.tbtn:hover{background:rgba(255,255,255,.24);color:#fff}
+.tbtn.active{background:var(--vc);border-color:var(--vc);color:var(--vo)}
+
+/* ─── BODY SPLIT ─────────────────────────────────────── */
+.body{display:grid;grid-template-columns:370px 1fr;overflow:hidden;height:100%}
+
+/* ─── SIDEBAR ────────────────────────────────────────── */
+.sidebar{background:#fff;border-right:1px solid var(--gl);display:flex;flex-direction:column;overflow:hidden}
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--gl);flex-shrink:0;background:var(--c)}
+.stat-item{padding:10px 8px;text-align:center;border-right:1px solid var(--gl);cursor:default}
+.stat-item:last-child{border-right:none}
+.stat-val{font-size:20px;font-weight:800;color:var(--v);line-height:1}
+.stat-val.warn{color:var(--d)}
+.stat-val.blue{color:var(--a)}
+.stat-lbl{font-size:8.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gt);margin-top:2px}
+.sb-head{padding:12px 16px;border-bottom:1px solid var(--gl);flex-shrink:0}
+.sb-head-title{font-size:10.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--vo);margin-bottom:8px}
+.sb-filters{display:flex;gap:5px;flex-wrap:wrap}
+.flt{background:var(--gs);border:1.5px solid var(--gl);border-radius:20px;padding:3px 11px;font-size:10px;font-weight:700;color:var(--gt);cursor:pointer;transition:all .15s;font-family:"Montserrat",sans-serif;letter-spacing:.3px}
+.flt.active{background:var(--v);border-color:var(--v);color:#fff}
+.sb-search{padding:8px 14px;border-bottom:1px solid var(--gl);flex-shrink:0}
+.sb-search input{width:100%;border:1.5px solid var(--gl);border-radius:5px;padding:7px 12px;font-family:"Montserrat",sans-serif;font-size:12px;outline:none;transition:all .18s;color:var(--to)}
+.sb-search input:focus{border-color:var(--v);box-shadow:0 0 0 3px rgba(45,122,45,.1)}
+.sb-sort{padding:6px 14px 8px;border-bottom:1px solid var(--gl);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.sb-sort label{font-size:9.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--gt);white-space:nowrap}
+.sb-sort select{font-family:"Montserrat",sans-serif;font-size:11px;font-weight:600;border:1.5px solid var(--gl);border-radius:4px;padding:4px 8px;outline:none;color:var(--to);background:#fff;flex:1;cursor:pointer}
+.sb-sort select:focus{border-color:var(--v)}
+.sb-count{font-size:9.5px;color:var(--gt);font-weight:600;margin-left:auto;white-space:nowrap}
+.sb-list{overflow-y:auto;flex:1}
+.sb-list::-webkit-scrollbar{width:5px}
+.sb-list::-webkit-scrollbar-thumb{background:var(--gl);border-radius:10px}
+
+/* ─── BRIGADA CARD ───────────────────────────────────── */
+.bcard{border-bottom:1px solid var(--gl);padding:12px 16px;cursor:pointer;transition:background .12s;position:relative;border-left:4px solid transparent}
+.bcard:hover{background:#fafbf9}
+.bcard.selected{background:var(--vp);border-left-color:var(--v)}
+.bcard.fuera{border-left-color:var(--d)}
+.bcard.nueva{animation:highlight .8s ease}
+@keyframes highlight{0%,100%{background:transparent}30%{background:#fffde7}}
+.bcard-date{position:absolute;top:12px;right:12px;font-size:9px;color:var(--gt)}
+.bcard-folio{font-size:9px;font-weight:800;letter-spacing:1.5px;color:var(--a);background:var(--ap);padding:2px 7px;border-radius:10px;display:inline-block;margin-bottom:4px}
+.bcard-nombre{font-weight:700;font-size:12px;color:var(--to);line-height:1.3;margin-bottom:2px;padding-right:50px}
+.bcard-predio{font-size:10.5px;color:var(--gt);margin-bottom:5px}
+.bcard-meta{display:flex;gap:5px;flex-wrap:wrap}
+.chip{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:10px;white-space:nowrap}
+.chip.ejido{background:#e8f5e9;color:#2e7d32}
+.chip.com{background:#fff3e0;color:#e65100}
+.chip.otro{background:#f3e5f5;color:#6a1b9a}
+.chip.cap-si{background:#e3f2fd;color:#1565c0}
+.chip.cap-no{background:#fce4ec;color:#c62828}
+.chip.cap-parcial{background:#fff9c4;color:#f57f17}
+.chip.fuera{background:#fff3cd;color:#856404}
+.chip.dentro{background:#d4edda;color:#155724}
+.chip.neutral{background:#f3f4f6;color:#374151}
+.new-badge{display:inline-block;background:var(--vc);color:#fff;font-size:8px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:2px 6px;border-radius:10px;margin-left:5px;animation:nbadge .6s}
+@keyframes nbadge{from{opacity:0;transform:scale(.5)}to{opacity:1;transform:scale(1)}}
+
+/* ─── EMPTY STATE ────────────────────────────────────── */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:var(--gt);gap:10px;text-align:center;padding:20px}
+.empty-state .ei{font-size:38px}
+.empty-state p{font-size:12px;line-height:1.6}
+
+/* ─── MAP PANE ───────────────────────────────────────── */
+.map-pane{display:flex;flex-direction:column;position:relative;overflow:hidden}
+#mapa-dashboard{flex:1;min-height:0}
+
+/* ─── CAPA CONTROLES MAPA ────────────────────────────── */
+.map-controls{position:absolute;top:12px;left:12px;z-index:500;display:flex;flex-direction:column;gap:6px}
+.map-ctrl-group{background:#fff;border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,.15);overflow:hidden}
+.mcb{display:block;padding:7px 13px;font-family:"Montserrat",sans-serif;font-size:10.5px;font-weight:700;color:var(--gt);cursor:pointer;border:none;background:transparent;transition:background .15s;width:100%;text-align:left;white-space:nowrap;border-bottom:1px solid var(--gl)}
+.mcb:last-child{border-bottom:none}
+.mcb:hover{background:var(--gs);color:var(--vo)}
+.mcb.active{background:var(--v);color:#fff}
+
+/* ─── LEYENDA MAPA ───────────────────────────────────── */
+.map-legend{position:absolute;bottom:30px;left:12px;z-index:500;background:#fff;border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,.15);padding:10px 14px;font-size:10.5px}
+.map-legend-title{font-weight:800;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--gt);margin-bottom:7px}
+.legend-item{display:flex;align-items:center;gap:7px;margin-bottom:5px;font-weight:600;color:var(--to)}
+.legend-item:last-child{margin-bottom:0}
+.legend-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+
+/* ─── PANEL DETALLE ──────────────────────────────────── */
+.detail-panel{position:absolute;top:12px;right:12px;width:320px;background:#fff;border-radius:var(--rad);box-shadow:0 12px 48px rgba(0,0,0,.2);z-index:1000;display:none;overflow:hidden;border-top:4px solid var(--v);max-height:calc(100% - 24px);flex-direction:column}
+.detail-panel.open{display:flex}
+.dp-head{background:linear-gradient(135deg,var(--ao),var(--a));padding:14px 18px;color:#fff;position:relative;flex-shrink:0}
+.dp-close{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;font-size:13px;border-radius:3px;padding:3px 8px;font-family:"Montserrat",sans-serif;transition:background .15s}
+.dp-close:hover{background:rgba(255,255,255,.28)}
+.dp-folio{font-size:8.5px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.55)}
+.dp-nombre{font-size:14px;font-weight:800;margin-top:3px;line-height:1.25;padding-right:30px}
+.dp-mun{font-size:10.5px;color:rgba(255,255,255,.7);margin-top:3px}
+.dp-body{padding:14px 18px;overflow-y:auto;flex:1}
+.dp-body::-webkit-scrollbar{width:4px}
+.dp-body::-webkit-scrollbar-thumb{background:var(--gl);border-radius:10px}
+.dp-section{margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--gl)}
+.dp-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.dp-stitle{font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--vo);margin-bottom:7px;display:flex;align-items:center;gap:5px}
+.dp-row{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;align-items:baseline}
+.dp-label{font-size:10px;color:var(--gt);font-weight:500;flex-shrink:0}
+.dp-value{font-size:11px;font-weight:700;color:var(--to);text-align:right;word-break:break-word;max-width:190px}
+.dp-ints{display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto}
+.dp-int-item{background:var(--gs);border-radius:4px;padding:5px 9px;display:flex;align-items:center;gap:8px}
+.dp-int-num{background:var(--v);color:#fff;font-size:9px;font-weight:800;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dp-int-text{flex:1}
+.dp-int-name{font-weight:700;font-size:11px;color:var(--to)}
+.dp-int-puesto{color:var(--gt);font-size:10px}
+.dp-infra-item{font-size:10.5px;padding:3px 0;border-bottom:1px solid var(--gl);display:flex;justify-content:space-between}
+.dp-infra-item:last-child{border-bottom:none}
+
+/* ─── LOADING ────────────────────────────────────────── */
+.loading-overlay{position:fixed;inset:0;background:rgba(21,24,24,.88);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#fff}
+.loading-overlay.hidden{display:none}
+.spin{width:38px;height:38px;border:3px solid rgba(255,255,255,.2);border-top-color:var(--vc);border-radius:50%;animation:rot .7s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.loading-text{font-size:13px;font-weight:600;color:rgba(255,255,255,.75);letter-spacing:.5px}
+.spin-sm{width:12px;height:12px;border:2px solid rgba(0,0,0,.1);border-top-color:var(--v);border-radius:50%;animation:rot .6s linear infinite;flex-shrink:0}
+
+/* ─── TOAST ──────────────────────────────────────────── */
+.tc{position:fixed;bottom:20px;right:20px;z-index:99999;display:flex;flex-direction:column;gap:7px;max-width:340px}
+.toast{background:#fff;border:1px solid var(--gl);border-left:4px solid;border-radius:5px;padding:10px 14px;display:flex;align-items:center;gap:8px;box-shadow:0 6px 24px rgba(0,0,0,.12);font-size:12px;font-weight:500;animation:tin .3s ease;line-height:1.4}
+@keyframes tin{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+.toast.success{border-left-color:var(--v)}.toast.error{border-left-color:var(--r)}.toast.info{border-left-color:var(--a)}.toast.warn{border-left-color:var(--d)}
+
+/* ─── MODAL ──────────────────────────────────────────── */
+.ov{display:none;position:fixed;inset:0;background:rgba(10,20,10,.65);z-index:10000;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.ov.open{display:flex}
+.mo{background:#fff;border-radius:var(--rad);padding:26px 28px;width:100%;max-width:480px;box-shadow:0 24px 64px rgba(0,0,0,.22);border-top:4px solid var(--v)}
+.mo h3{font-size:13px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--vo);margin-bottom:8px}
+.mo p{font-size:11px;color:var(--gt);margin-bottom:14px;line-height:1.7}
+.mo-conn-ok{background:#d4edda;border:1.5px solid #28a745;border-radius:5px;padding:8px 14px;font-size:11.5px;font-weight:700;color:#155724;margin-bottom:12px;display:none}
+.fd{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+label.lb{font-size:9.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--gt)}
+.mo input,.mo select{font-family:"Montserrat",sans-serif;font-size:12.5px;padding:9px 12px;border:1.5px solid var(--gl);border-radius:5px;width:100%;outline:none;transition:all .18s;color:var(--to)}
+.mo input:focus,.mo select:focus{border-color:var(--v);box-shadow:0 0 0 3px rgba(45,122,45,.1)}
+.moa{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.bp{background:var(--v);border:none;border-radius:5px;padding:10px 24px;font-family:"Montserrat",sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;transition:all .18s;letter-spacing:.3px}
+.bp:hover{background:var(--vo)}
+.bo{background:#fff;border:1.5px solid var(--gl);border-radius:5px;padding:9px 18px;font-family:"Montserrat",sans-serif;font-size:11.5px;font-weight:600;color:var(--gt);cursor:pointer;transition:all .18s}
+.bo:hover{border-color:var(--v);color:var(--vo)}
+
+/* ─── PANEL STATS MUNICIPIOS ─────────────────────────── */
+.mun-panel{position:absolute;bottom:12px;right:12px;width:220px;background:#fff;border-radius:var(--rad);box-shadow:0 4px 20px rgba(0,0,0,.15);z-index:500;overflow:hidden;display:none}
+.mun-panel.open{display:block}
+.mun-panel-head{background:var(--a);padding:8px 14px;color:#fff;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between}
+.mun-list{max-height:200px;overflow-y:auto}
+.mun-row{display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--gl);font-size:11px}
+.mun-row:last-child{border-bottom:none}
+.mun-name{flex:1;font-weight:600;color:var(--to);font-size:10.5px}
+.mun-count{font-weight:800;color:var(--a);font-size:12px;flex-shrink:0}
+.mun-bar{height:3px;background:var(--vp);border-radius:2px;margin-top:2px}
+.mun-bar-fill{height:3px;background:var(--v);border-radius:2px}
+
+/* ─── NO COORDS BADGE ────────────────────────────────── */
+.no-coords-badge{position:absolute;bottom:62px;left:12px;z-index:500;background:#fff;border-radius:5px;box-shadow:0 2px 10px rgba(0,0,0,.14);padding:6px 12px;font-size:10px;font-weight:700;color:var(--gt);display:none}
+.no-coords-badge.visible{display:block}
+
+/* ─── RESPONSIVE ─────────────────────────────────────── */
+@media(max-width:900px){
+  .body{grid-template-columns:1fr}
+  .sidebar{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══ TOPBAR ═══ -->
+  <div class="topbar">
+    <div class="topbar-logo">SEMARNAT</div>
+    <div class="topbar-sep"></div>
+    <div class="topbar-title">DURANGO · SISTEMA MRV · BRIGADAS FORESTALES</div>
+    <div class="topbar-sep"></div>
+    <div class="topbar-badge"><div class="bl">Brigadas</div><div class="bv" id="tb-total">—</div></div>
+    <div class="topbar-badge"><div class="bl">Integrantes</div><div class="bv" id="tb-ints">—</div></div>
+    <div class="topbar-badge"><div class="bl">Municipios</div><div class="bv" id="tb-muns">—</div></div>
+    <div class="topbar-right">
+      <div class="pulse" id="pulse-dot"></div>
+      <span class="live-label" id="live-label">DESCONECTADO</span>
+      <div class="topbar-sep"></div>
+      <button class="tbtn" onclick="toggleMunPanel()" id="btn-mun-panel">📊 Municipios</button>
+      <button class="tbtn" onclick="exportarCSV()">⬇ CSV</button>
+      <button class="tbtn" onclick="recargarDatos()">↺ Actualizar</button>
+      <button class="tbtn" onclick="openModal('mc')">⚙ Conexión</button>
+    </div>
+  </div>
+
+  <!-- ═══ BODY ═══ -->
+  <div class="body">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <!-- STATS -->
+      <div class="stats-bar">
+        <div class="stat-item" title="Total de brigadas registradas">
+          <div class="stat-val" id="st-brigadas">0</div>
+          <div class="stat-lbl">Brigadas</div>
+        </div>
+        <div class="stat-item" title="Total de integrantes">
+          <div class="stat-val blue" id="st-ints">0</div>
+          <div class="stat-lbl">Integrantes</div>
+        </div>
+        <div class="stat-item" title="Con capacitación">
+          <div class="stat-val" id="st-cap">0</div>
+          <div class="stat-lbl">Cap. ✓</div>
+        </div>
+        <div class="stat-item" title="Fuera del polígono">
+          <div class="stat-val warn" id="st-fuera">0</div>
+          <div class="stat-lbl">⚠ Fuera</div>
+        </div>
+      </div>
+
+      <!-- FILTROS -->
+      <div class="sb-head">
+        <div class="sb-head-title">🔍 Filtros rápidos</div>
+        <div class="sb-filters">
+          <button class="flt active" onclick="setFilter('all',this)">Todas</button>
+          <button class="flt" onclick="setFilter('ejido',this)">Ejidos</button>
+          <button class="flt" onclick="setFilter('comunidad',this)">Comunidades</button>
+          <button class="flt" onclick="setFilter('cap',this)">Capacitadas</button>
+          <button class="flt" onclick="setFilter('fuera',this)">⚠ Fuera</button>
+          <button class="flt" onclick="setFilter('coords',this)">Con mapa</button>
+        </div>
+      </div>
+
+      <!-- BÚSQUEDA -->
+      <div class="sb-search">
+        <input type="text" id="search-input" placeholder="🔎  Buscar predio, municipio, brigada..." oninput="buscar(this.value)">
+      </div>
+
+      <!-- ORDENAR + CONTEO -->
+      <div class="sb-sort">
+        <label class="lb">Orden</label>
+        <select id="sort-select" onchange="aplicarFiltros()">
+          <option value="fecha_desc">Fecha ↓ reciente</option>
+          <option value="fecha_asc">Fecha ↑ antigua</option>
+          <option value="nombre_asc">Nombre A–Z</option>
+          <option value="municipio_asc">Municipio A–Z</option>
+          <option value="ints_desc">Más integrantes</option>
+        </select>
+        <span class="sb-count" id="sb-count">0 registros</span>
+      </div>
+
+      <!-- LISTA -->
+      <div class="sb-list" id="brigadas-list">
+        <div class="empty-state">
+          <div class="ei">🔌</div>
+          <p>Conectando a Supabase…<br><span style="font-size:10px">Espere un momento</span></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAPA -->
+    <div class="map-pane">
+      <div id="mapa-dashboard"></div>
+
+      <!-- CONTROLES MAPA -->
+      <div class="map-controls">
+        <div class="map-ctrl-group">
+          <button class="mcb active" id="btn-osm" onclick="setLayer('osm')">🗺 Mapa base</button>
+          <button class="mcb" id="btn-sat" onclick="setLayer('sat')">🛰 Satélite</button>
+          <button class="mcb" id="btn-topo" onclick="setLayer('topo')">🏔 Topo</button>
+        </div>
+        <div class="map-ctrl-group">
+          <button class="mcb" onclick="centrarDurango()">🎯 Centrar</button>
+          <button class="mcb" onclick="fitAllMarkers()">⛶ Ver todo</button>
+        </div>
+      </div>
+
+      <!-- LEYENDA -->
+      <div class="map-legend">
+        <div class="map-legend-title">Leyenda</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#2d7a2d"></div>Dentro del polígono</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#C8961A"></div>Fuera del polígono</div>
+      </div>
+
+      <!-- PANEL DETALLE -->
+      <div class="detail-panel" id="detail-panel">
+        <div class="dp-head">
+          <button class="dp-close" onclick="cerrarDetalle()">✕</button>
+          <div class="dp-folio" id="dp-folio">—</div>
+          <div class="dp-nombre" id="dp-nombre">—</div>
+          <div class="dp-mun" id="dp-mun">—</div>
+        </div>
+        <div class="dp-body" id="dp-body"></div>
+      </div>
+
+      <!-- PANEL MUNICIPIOS -->
+      <div class="mun-panel" id="mun-panel">
+        <div class="mun-panel-head">
+          <span>Brigadas por municipio</span>
+          <button onclick="toggleMunPanel()" style="background:transparent;border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:13px">✕</button>
+        </div>
+        <div class="mun-list" id="mun-list"></div>
+      </div>
+
+      <!-- SIN COORDS -->
+      <div class="no-coords-badge" id="no-coords-badge">📍 <span id="no-coords-num">0</span> brigadas sin coordenadas</div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIG SUPABASE -->
+<div class="ov" id="mc"><div class="mo">
+  <h3>⚙ Conexión Supabase · MRV</h3>
+  <p>Las credenciales del proyecto MRV-Durango ya están preconfiguradas. Puedes modificarlas si es necesario.</p>
+  <div class="mo-conn-ok" id="conn-ok-msg">✅ Conectado correctamente a Supabase</div>
+  <div class="fd">
+    <label class="lb">URL del Proyecto</label>
+    <input type="text" id="sb-url" placeholder="https://xxxx.supabase.co">
+  </div>
+  <div class="fd">
+    <label class="lb">Anon / Public API Key</label>
+    <input type="text" id="sb-key" placeholder="eyJhbGciOiJI..." style="font-size:10.5px">
+  </div>
+  <div class="moa">
+    <button class="bo" onclick="closeModal('mc')">Cerrar</button>
+    <button class="bp" onclick="conectarDesdeModal()">🔗 Reconectar</button>
+  </div>
+</div></div>
+
+<!-- LOADING -->
+<div class="loading-overlay hidden" id="loading">
+  <div class="spin"></div>
+  <div class="loading-text" id="loading-text">Cargando brigadas…</div>
+</div>
+
+<div class="tc" id="toasts"></div>
+
+<script>
+// ════════════════════════════════════════════════════════
+//  CREDENCIALES PRECONFIGURADAS
+// ════════════════════════════════════════════════════════
+const SB_URL = 'https://mkwuyekionplbthodqxl.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rd3V5ZWtpb25wbGJ0aG9kcXhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNzczMDksImV4cCI6MjA4ODY1MzMwOX0.wmDk2KECWrFv59vuR1OZM6gQNMRY1GUPcey-I1epIto';
+
+// ════════════════════════════════════════════════════════
+//  GLOBALS
+// ════════════════════════════════════════════════════════
+let sbClient = null;
+let mapaD, brigLayer, capas = {};
+let todasBrigadas = [];
+let brigadasFiltradas = [];
+let marcadores = {};
+let filtroActivo = 'all';
+let busquedaActiva = '';
+let selectedId = null;
+let realtimeSub = null;
+
+// ════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  initMapa();
+  // Esperar a que la librería Supabase cargue
+  const waitLib = setInterval(() => {
+    if (window.supabase && window.supabase.createClient) {
+      clearInterval(waitLib);
+      inicializarConexion();
+    }
+  }, 80);
+  // Fallback
+  setTimeout(() => { clearInterval(waitLib); inicializarConexion(); }, 3000);
+
+  // Cerrar modales al click afuera
+  document.querySelectorAll('.ov').forEach(o => {
+    o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+  });
+});
+
+function inicializarConexion() {
+  const url = localStorage.getItem('sb_url') || SB_URL;
+  const key = localStorage.getItem('sb_key') || SB_KEY;
+  document.getElementById('sb-url').value = url;
+  document.getElementById('sb-key').value = key;
+  conectar(url, key);
+}
+
+// ════════════════════════════════════════════════════════
+//  MAPA
+// ════════════════════════════════════════════════════════
+function initMapa() {
+  mapaD = L.map('mapa-dashboard', { zoomControl: true, attributionControl: true }).setView([24.5, -104.65], 7);
+  capas.osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 });
+  capas.sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri World Imagery', maxZoom: 19 });
+  capas.topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: '© OpenTopoMap', maxZoom: 17 });
+  capas.osm.addTo(mapaD);
+  brigLayer = L.layerGroup().addTo(mapaD);
+
+  // Click fuera de marcador cierra detalle
+  mapaD.on('click', () => cerrarDetalle());
+}
+
+function setLayer(nombre) {
+  Object.values(capas).forEach(c => mapaD.removeLayer(c));
+  capas[nombre].addTo(mapaD);
+  document.querySelectorAll('.mcb[id^="btn-"]').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('btn-' + nombre);
+  if (btn) btn.classList.add('active');
+}
+
+function centrarDurango() { mapaD.setView([24.5, -104.65], 7); }
+
+function fitAllMarkers() {
+  const coordsBrigadas = brigadasFiltradas.filter(b => b.latitud && b.longitud);
+  if (!coordsBrigadas.length) { toast('No hay brigadas con coordenadas visibles', 'warn'); return; }
+  const bounds = L.latLngBounds(coordsBrigadas.map(b => [b.latitud, b.longitud]));
+  mapaD.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+}
+
+// ════════════════════════════════════════════════════════
+//  SUPABASE — CONEXIÓN
+// ════════════════════════════════════════════════════════
+async function conectar(url, key) {
+  try {
+    const lib = window.supabase;
+    if (!lib || !lib.createClient) throw new Error('Librería Supabase no disponible');
+    sbClient = lib.createClient(url, key);
+    document.getElementById('pulse-dot').classList.add('live');
+    document.getElementById('live-label').textContent = 'CONECTADO';
+    document.getElementById('conn-ok-msg').style.display = 'block';
+    toast('✅ Conectado a Supabase · Cargando datos…', 'success');
+    await cargarBrigadas();
+    suscribirRealtime();
+  } catch(e) {
+    document.getElementById('live-label').textContent = 'ERROR';
+    toast('Error de conexión: ' + e.message, 'error');
+    console.error('Supabase conexión error:', e);
+    mostrarEstadoVacio('Error de conexión. Verifica las credenciales en ⚙ Conexión.');
+  }
+}
+
+function conectarDesdeModal() {
+  const url = document.getElementById('sb-url').value.trim();
+  const key = document.getElementById('sb-key').value.trim();
+  if (!url || !key) { toast('Ingresa URL y API Key', 'warn'); return; }
+  localStorage.setItem('sb_url', url);
+  localStorage.setItem('sb_key', key);
+  // Desuscribir canal previo
+  if (realtimeSub) { sbClient?.removeChannel(realtimeSub); realtimeSub = null; }
+  closeModal('mc');
+  conectar(url, key);
+}
+
+async function recargarDatos() {
+  if (!sbClient) { toast('No hay conexión activa', 'warn'); return; }
+  await cargarBrigadas();
+}
+
+// ════════════════════════════════════════════════════════
+//  CARGAR DATOS
+// ════════════════════════════════════════════════════════
+async function cargarBrigadas() {
+  if (!sbClient) return;
+  setLoading(true, 'Cargando brigadas MRV…');
+  try {
+    const { data, error } = await sbClient
+      .from('brigadas_forestales')
+      .select(`
+        id, folio, fecha_registro,
+        nombre_predio, municipio, localidad, tipo_predio, region, id_nucleo_ran, oficio_predio,
+        brigada_nombre, brigada_tipo, capacitacion, num_integrantes, integrantes,
+        latitud, longitud, altitud, tipo_sitio, precision_dato, datum,
+        dentro_poligono, fuera_confirmado, descripcion_sitio,
+        responsable_nombre, responsable_telefono, responsable_email,
+        infraestructura, created_at
+      `)
+      .order('fecha_registro', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    todasBrigadas = data || [];
+    actualizarEstadisticas();
+    actualizarPanelMunicipios();
+    aplicarFiltros();
+    renderizarMarcadores();
+
+    const sinCoords = todasBrigadas.filter(b => !b.latitud || !b.longitud).length;
+    if (sinCoords > 0) {
+      document.getElementById('no-coords-num').textContent = sinCoords;
+      document.getElementById('no-coords-badge').classList.add('visible');
+    }
+
+    toast(`${todasBrigadas.length} brigada${todasBrigadas.length !== 1 ? 's' : ''} cargada${todasBrigadas.length !== 1 ? 's' : ''}`, 'success');
+  } catch(e) {
+    toast('Error al cargar datos: ' + e.message, 'error');
+    console.error('cargarBrigadas error:', e);
+    mostrarEstadoVacio('Error al cargar datos: ' + e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ════════════════════════════════════════════════════════
+//  REALTIME
+// ════════════════════════════════════════════════════════
+function suscribirRealtime() {
+  if (!sbClient) return;
+  realtimeSub = sbClient
+    .channel('mrv_brigadas_live')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'brigadas_forestales' }, payload => {
+      const nueva = payload.new;
+      // Evitar duplicados
+      if (todasBrigadas.find(b => b.id === nueva.id)) return;
+      todasBrigadas.unshift(nueva);
+      actualizarEstadisticas();
+      actualizarPanelMunicipios();
+      aplicarFiltros();
+      if (nueva.latitud && nueva.longitud) agregarMarcador(nueva, true);
+      toast(`🆕 Nueva brigada: ${nueva.brigada_nombre || nueva.nombre_predio} · ${nueva.municipio}`, 'success');
+    })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'brigadas_forestales' }, payload => {
+      const idx = todasBrigadas.findIndex(b => b.id === payload.new.id);
+      if (idx !== -1) {
+        todasBrigadas[idx] = { ...todasBrigadas[idx], ...payload.new };
+        actualizarEstadisticas();
+        aplicarFiltros();
+        renderizarMarcadores();
+        toast(`🔄 Brigada actualizada: ${payload.new.brigada_nombre}`, 'info');
+      }
+    })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        toast('📡 Tiempo real activo — recibiendo cambios', 'info');
+      }
+    });
+}
+
+// ════════════════════════════════════════════════════════
+//  FILTROS Y BÚSQUEDA
+// ════════════════════════════════════════════════════════
+function setFilter(f, btn) {
+  filtroActivo = f;
+  document.querySelectorAll('.flt').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  aplicarFiltros();
+}
+
+function buscar(q) {
+  busquedaActiva = q.toLowerCase().trim();
+  aplicarFiltros();
+}
+
+function aplicarFiltros() {
+  let data = [...todasBrigadas];
+
+  // Filtro rápido
+  switch (filtroActivo) {
+    case 'ejido':     data = data.filter(b => (b.tipo_predio||'').toLowerCase() === 'ejido'); break;
+    case 'comunidad': data = data.filter(b => (b.tipo_predio||'').toLowerCase() === 'comunidad'); break;
+    case 'cap':       data = data.filter(b => b.capacitacion === 'si'); break;
+    case 'fuera':     data = data.filter(b => b.dentro_poligono === false); break;
+    case 'coords':    data = data.filter(b => b.latitud && b.longitud); break;
+  }
+
+  // Búsqueda de texto
+  if (busquedaActiva) {
+    data = data.filter(b =>
+      (b.nombre_predio||'').toLowerCase().includes(busquedaActiva) ||
+      (b.municipio||'').toLowerCase().includes(busquedaActiva) ||
+      (b.brigada_nombre||'').toLowerCase().includes(busquedaActiva) ||
+      (b.responsable_nombre||'').toLowerCase().includes(busquedaActiva) ||
+      (b.folio||'').toLowerCase().includes(busquedaActiva) ||
+      (b.region||'').toLowerCase().includes(busquedaActiva)
+    );
+  }
+
+  // Ordenamiento
+  const sort = document.getElementById('sort-select')?.value || 'fecha_desc';
+  switch (sort) {
+    case 'fecha_desc':    data.sort((a, b) => (b.fecha_registro||'').localeCompare(a.fecha_registro||'')); break;
+    case 'fecha_asc':     data.sort((a, b) => (a.fecha_registro||'').localeCompare(b.fecha_registro||'')); break;
+    case 'nombre_asc':    data.sort((a, b) => (a.brigada_nombre||'').localeCompare(b.brigada_nombre||'')); break;
+    case 'municipio_asc': data.sort((a, b) => (a.municipio||'').localeCompare(b.municipio||'')); break;
+    case 'ints_desc':     data.sort((a, b) => (b.num_integrantes||0) - (a.num_integrantes||0)); break;
+  }
+
+  brigadasFiltradas = data;
+  document.getElementById('sb-count').textContent = `${data.length} registro${data.length !== 1 ? 's' : ''}`;
+  renderizarLista();
+  actualizarVisibilidadMarcadores();
+}
+
+// ════════════════════════════════════════════════════════
+//  RENDER LISTA
+// ════════════════════════════════════════════════════════
+function renderizarLista() {
+  const list = document.getElementById('brigadas-list');
+
+  if (!brigadasFiltradas.length) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="ei">${todasBrigadas.length === 0 ? '📭' : '🔍'}</div>
+      <p>${todasBrigadas.length === 0 ? 'No hay brigadas registradas aún.<br>Usa el formulario para capturar.' : 'Sin resultados para la búsqueda actual.'}</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = '';
+  brigadasFiltradas.forEach((b, idx) => {
+    const card = document.createElement('div');
+    const esFuera = b.dentro_poligono === false;
+    const esNueva = idx === 0 && todasBrigadas.length > 0;
+    card.className = `bcard ${esFuera ? 'fuera' : ''} ${b.id === selectedId ? 'selected' : ''}`;
+
+    const tipoChip = (() => {
+      const t = (b.tipo_predio||'').toLowerCase();
+      if (t === 'ejido') return '<span class="chip ejido">EJIDO</span>';
+      if (t === 'comunidad') return '<span class="chip com">COMUNIDAD</span>';
+      if (t) return `<span class="chip otro">${t.toUpperCase()}</span>`;
+      return '';
+    })();
+
+    const capChip = b.capacitacion === 'si' ? '<span class="chip cap-si">✓ Capacitada</span>'
+      : b.capacitacion === 'no' ? '<span class="chip cap-no">Sin cap.</span>'
+      : b.capacitacion === 'parcial' ? '<span class="chip cap-parcial">Parcial</span>' : '';
+
+    const polyChip = esFuera
+      ? '<span class="chip fuera">⚠ Fuera</span>'
+      : (b.latitud ? '<span class="chip dentro">✓ En polígono</span>' : '<span class="chip neutral">Sin mapa</span>');
+
+    const fecha = (b.fecha_registro || '').split('T')[0] || '—';
+    const region = b.region ? `<span class="chip neutral">${b.region}</span>` : '';
+
+    card.innerHTML = `
+      <div class="bcard-date">${fecha}</div>
+      <div class="bcard-folio">${b.folio || '—'}</div>
+      <div class="bcard-nombre">${b.brigada_nombre || b.nombre_predio || '—'}</div>
+      <div class="bcard-predio">🌲 ${b.nombre_predio || '—'} · ${b.municipio || '—'}</div>
+      <div class="bcard-meta">
+        ${tipoChip}
+        ${capChip}
+        <span class="chip neutral">👤 ${b.num_integrantes || 0}</span>
+        ${polyChip}
+        ${region}
+      </div>`;
+
+    card.addEventListener('click', (e) => { e.stopPropagation(); seleccionarBrigada(b); });
+    list.appendChild(card);
+  });
+}
+
+function mostrarEstadoVacio(msg) {
+  document.getElementById('brigadas-list').innerHTML = `<div class="empty-state"><div class="ei">⚠️</div><p>${msg}</p></div>`;
+}
+
+// ════════════════════════════════════════════════════════
+//  MARCADORES
+// ════════════════════════════════════════════════════════
+function renderizarMarcadores() {
+  brigLayer.clearLayers();
+  marcadores = {};
+  todasBrigadas.forEach(b => agregarMarcador(b, false));
+}
+
+function agregarMarcador(b, nueva = false) {
+  if (!b.latitud || !b.longitud) return;
+  const fuera = b.dentro_poligono === false;
+  const color = fuera ? '#C8961A' : '#2d7a2d';
+  const emoji = fuera ? '⚠️' : '🌲';
+  const size = nueva ? 36 : 30;
+
+  const icono = L.divIcon({
+    className: '',
+    html: `<div style="width:${size}px;height:${size}px;background:${color};border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2.5px solid white;box-shadow:0 3px 12px rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center;transition:transform .15s${nueva ? ';animation:mpop .4s' : ''}">
+      <span style="transform:rotate(45deg);font-size:${nueva ? 15 : 13}px">${emoji}</span>
+    </div>
+    ${nueva ? '<style>@keyframes mpop{from{transform:rotate(-45deg) scale(0)}to{transform:rotate(-45deg) scale(1)}}</style>' : ''}`,
+    iconSize: [size, size], iconAnchor: [size/2, size], popupAnchor: [0, -size - 4]
+  });
+
+  const marker = L.marker([b.latitud, b.longitud], { icon: icono });
+  marker.bindTooltip(
+    `<strong>${b.brigada_nombre || b.nombre_predio || '—'}</strong><br>
+     📍 ${b.nombre_predio || '—'} · ${b.municipio || '—'}<br>
+     👤 ${b.num_integrantes || 0} integrantes`,
+    { direction: 'top', offset: [0, -size - 4], className: '' }
+  );
+  marker.on('click', (e) => { L.DomEvent.stopPropagation(e); seleccionarBrigada(b); });
+  marker.addTo(brigLayer);
+  marcadores[b.id] = marker;
+}
+
+function actualizarVisibilidadMarcadores() {
+  const ids = new Set(brigadasFiltradas.map(b => b.id));
+  Object.entries(marcadores).forEach(([id, m]) => {
+    if (ids.has(id)) { if (!brigLayer.hasLayer(m)) brigLayer.addLayer(m); }
+    else brigLayer.removeLayer(m);
+  });
+}
+
+// ════════════════════════════════════════════════════════
+//  SELECCIONAR Y DETALLE
+// ════════════════════════════════════════════════════════
+function seleccionarBrigada(b) {
+  selectedId = b.id;
+  renderizarLista();
+
+  // Scroll en sidebar a la card seleccionada
+  const card = document.querySelector(`.bcard[data-id="${b.id}"]`);
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  // Zoom al marcador en mapa
+  if (b.latitud && b.longitud) {
+    mapaD.setView([b.latitud, b.longitud], 14, { animate: true });
+  }
+
+  // Encabezado
+  document.getElementById('dp-folio').textContent = b.folio || '—';
+  document.getElementById('dp-nombre').textContent = b.brigada_nombre || b.nombre_predio || '—';
+  document.getElementById('dp-mun').textContent = `${b.nombre_predio || '—'} · ${b.municipio || '—'}`;
+
+  // Cambia color del borde si está fuera
+  const panel = document.getElementById('detail-panel');
+  panel.style.borderTopColor = b.dentro_poligono === false ? 'var(--d)' : 'var(--v)';
+
+  const v = (val) => (val !== null && val !== undefined && val !== '') ? val : '—';
+  const polyBadge = b.dentro_poligono === false
+    ? '<span style="background:#fff3cd;color:#856404;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700">⚠ Fuera del polígono</span>'
+    : (b.latitud ? '<span style="background:#d4edda;color:#155724;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700">✓ Dentro del polígono</span>' : '—');
+
+  const capLabel = b.capacitacion === 'si' ? '✅ Con capacitación' : b.capacitacion === 'no' ? '❌ Sin capacitación' : '⚠️ Parcial / en proceso';
+
+  // Integrantes
+  const integrantes = Array.isArray(b.integrantes) ? b.integrantes : [];
+  const intsHtml = integrantes.length
+    ? integrantes.map((i, n) => `
+        <div class="dp-int-item">
+          <div class="dp-int-num">${n+1}</div>
+          <div class="dp-int-text">
+            <div class="dp-int-name">${v(i.nombre)}</div>
+            <div class="dp-int-puesto">${v(i.puesto)}${i.telefono ? ' · ' + i.telefono : ''}</div>
+          </div>
+        </div>`).join('')
+    : '<div style="font-size:11px;color:var(--gt);padding:4px 0">Sin integrantes registrados</div>';
+
+  // Infraestructura
+  const equip = b.infraestructura?.equipamiento || [];
+  const infraHtml = equip.length
+    ? equip.map(e => `<div class="dp-infra-item"><span>${e.categoria || '—'}: ${e.nombre || '—'}</span><span style="font-weight:700">${e.cantidad || 0} · ${e.estado || '—'}</span></div>`).join('')
+    : '<div style="font-size:11px;color:var(--gt)">Sin equipamiento registrado</div>';
+
+  document.getElementById('dp-body').innerHTML = `
+    <div class="dp-section">
+      <div class="dp-stitle">🏡 Predio / Núcleo Agrario</div>
+      <div class="dp-row"><span class="dp-label">Nombre</span><span class="dp-value">${v(b.nombre_predio)}</span></div>
+      <div class="dp-row"><span class="dp-label">Municipio</span><span class="dp-value">${v(b.municipio)}</span></div>
+      <div class="dp-row"><span class="dp-label">Tipo</span><span class="dp-value">${v(b.tipo_predio)}</span></div>
+      <div class="dp-row"><span class="dp-label">UMAFOR / Región</span><span class="dp-value">${v(b.region)}</span></div>
+      <div class="dp-row"><span class="dp-label">Oficio SEMARNAT</span><span class="dp-value">${v(b.oficio_predio)}</span></div>
+      <div class="dp-row"><span class="dp-label">Fecha Registro</span><span class="dp-value">${v(b.fecha_registro)}</span></div>
+    </div>
+    <div class="dp-section">
+      <div class="dp-stitle">👥 Brigada</div>
+      <div class="dp-row"><span class="dp-label">Nombre</span><span class="dp-value">${v(b.brigada_nombre)}</span></div>
+      <div class="dp-row"><span class="dp-label">Tipo</span><span class="dp-value">${v(b.brigada_tipo)}</span></div>
+      <div class="dp-row"><span class="dp-label">Capacitación</span><span class="dp-value">${capLabel}</span></div>
+      <div class="dp-row"><span class="dp-label">Num. Integrantes</span><span class="dp-value" style="color:var(--a);font-size:14px">${b.num_integrantes || 0}</span></div>
+    </div>
+    <div class="dp-section">
+      <div class="dp-stitle">📍 Ubicación</div>
+      <div class="dp-row"><span class="dp-label">Estado polígono</span><span class="dp-value">${polyBadge}</span></div>
+      ${b.latitud ? `<div class="dp-row"><span class="dp-label">Coordenadas</span><span class="dp-value" style="font-family:monospace;font-size:10px">${b.latitud.toFixed(6)}, ${b.longitud.toFixed(6)}</span></div>` : ''}
+      <div class="dp-row"><span class="dp-label">Altitud</span><span class="dp-value">${b.altitud ? b.altitud + ' m.s.n.m.' : '—'}</span></div>
+      <div class="dp-row"><span class="dp-label">Tipo de sitio</span><span class="dp-value">${v(b.tipo_sitio)}</span></div>
+      ${b.descripcion_sitio ? `<div class="dp-row"><span class="dp-label">Descripción</span><span class="dp-value" style="font-size:10px">${b.descripcion_sitio}</span></div>` : ''}
+    </div>
+    <div class="dp-section">
+      <div class="dp-stitle">🧑‍💼 Responsable Técnico</div>
+      <div class="dp-row"><span class="dp-label">Nombre</span><span class="dp-value">${v(b.responsable_nombre)}</span></div>
+      <div class="dp-row"><span class="dp-label">Teléfono</span><span class="dp-value">${v(b.responsable_telefono)}</span></div>
+      <div class="dp-row"><span class="dp-label">Correo</span><span class="dp-value" style="font-size:10px">${v(b.responsable_email)}</span></div>
+    </div>
+    <div class="dp-section">
+      <div class="dp-stitle">👤 Integrantes (${integrantes.length})</div>
+      <div class="dp-ints">${intsHtml}</div>
+    </div>
+    <div class="dp-section">
+      <div class="dp-stitle">🛠 Equipamiento</div>
+      ${infraHtml}
+    </div>`;
+
+  panel.classList.add('open');
+
+  // Marcar card con data-id para scroll
+  document.querySelectorAll('.bcard').forEach(c => c.removeAttribute('data-id'));
+  const newCard = document.querySelector('.bcard.selected');
+  if (newCard) newCard.setAttribute('data-id', b.id);
+}
+
+function cerrarDetalle() {
+  document.getElementById('detail-panel').classList.remove('open');
+  selectedId = null;
+  renderizarLista();
+}
+
+// ════════════════════════════════════════════════════════
+//  ESTADÍSTICAS
+// ════════════════════════════════════════════════════════
+function actualizarEstadisticas() {
+  const total = todasBrigadas.length;
+  const ints  = todasBrigadas.reduce((s, b) => s + (b.num_integrantes || 0), 0);
+  const cap   = todasBrigadas.filter(b => b.capacitacion === 'si').length;
+  const fuera = todasBrigadas.filter(b => b.dentro_poligono === false).length;
+  const muns  = new Set(todasBrigadas.map(b => b.municipio).filter(Boolean)).size;
+
+  document.getElementById('st-brigadas').textContent = total;
+  document.getElementById('st-ints').textContent = ints;
+  document.getElementById('st-cap').textContent = cap;
+  document.getElementById('st-fuera').textContent = fuera;
+  document.getElementById('tb-total').textContent = total;
+  document.getElementById('tb-ints').textContent = ints;
+  document.getElementById('tb-muns').textContent = muns;
+}
+
+// ════════════════════════════════════════════════════════
+//  PANEL MUNICIPIOS
+// ════════════════════════════════════════════════════════
+function actualizarPanelMunicipios() {
+  const map = {};
+  todasBrigadas.forEach(b => {
+    if (b.municipio) map[b.municipio] = (map[b.municipio] || 0) + 1;
+  });
+  const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]);
+  const max = sorted[0]?.[1] || 1;
+  const lista = document.getElementById('mun-list');
+  lista.innerHTML = sorted.map(([mun, cnt]) => `
+    <div class="mun-row">
+      <div>
+        <div class="mun-name">${mun}</div>
+        <div class="mun-bar"><div class="mun-bar-fill" style="width:${Math.round(cnt/max*100)}%"></div></div>
+      </div>
+      <div class="mun-count">${cnt}</div>
+    </div>`).join('') || '<div style="padding:12px;font-size:11px;color:var(--gt)">Sin datos</div>';
+}
+
+function toggleMunPanel() {
+  const panel = document.getElementById('mun-panel');
+  panel.classList.toggle('open');
+}
+
+// ════════════════════════════════════════════════════════
+//  EXPORTAR CSV
+// ════════════════════════════════════════════════════════
+function exportarCSV() {
+  if (!todasBrigadas.length) { toast('No hay datos para exportar', 'warn'); return; }
+  const cols = ['folio','fecha_registro','nombre_predio','municipio','localidad','tipo_predio','region',
+    'oficio_predio','id_nucleo_ran','brigada_nombre','brigada_tipo','capacitacion','num_integrantes',
+    'latitud','longitud','altitud','tipo_sitio','dentro_poligono','fuera_confirmado',
+    'responsable_nombre','responsable_telefono','responsable_email'];
+  const header = cols.join(',');
+  const rows = todasBrigadas.map(b =>
+    cols.map(c => {
+      const val = b[c];
+      if (val === null || val === undefined) return '';
+      if (typeof val === 'boolean') return val ? 'SI' : 'NO';
+      const s = String(val);
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g,'""')}"` : s;
+    }).join(',')
+  );
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `SEMARNAT_MRV_Brigadas_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  toast(`${todasBrigadas.length} registros exportados`, 'success');
+}
+
+// ════════════════════════════════════════════════════════
+//  UTILIDADES
+// ════════════════════════════════════════════════════════
+function setLoading(v, txt = '') {
+  document.getElementById('loading').classList.toggle('hidden', !v);
+  if (txt) document.getElementById('loading-text').textContent = txt;
+}
+
+function toast(msg, tipo = 'info') {
+  const icons = { success: '✅', error: '❌', info: 'ℹ️', warn: '⚠️' };
+  const cont = document.getElementById('toasts');
+  const div = document.createElement('div');
+  div.className = `toast ${tipo}`;
+  div.innerHTML = `<span style="font-size:14px;flex-shrink:0">${icons[tipo] || 'ℹ️'}</span><span>${msg}</span>`;
+  cont.appendChild(div);
+  setTimeout(() => div.remove(), 5500);
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+</script>
+</body>
+</html>
