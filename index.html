@@ -291,7 +291,7 @@ input[readonly]{background:#f5f5f5;color:var(--gt);cursor:default}
     <div class="ns" id="ns-4"><span class="sn2">4</span> Infraestructura</div>
     <div class="nc">
       <span class="cd" id="conn-dot"></span>
-      <button class="bn" onclick="openModal('mc')">⚙ Supabase</button>
+      <button class="bn" onclick="openModal('mc')">⚙ Conexion</button>
       <button class="bn" onclick="exportarJSON()">⬇ Exportar</button>
     </div>
   </div></nav>
@@ -440,19 +440,19 @@ input[readonly]{background:#f5f5f5;color:var(--gt);cursor:default}
         <label class="lb">UMAFOR CONAFOR </label>
         <select id="region">
           <option value="">— Seleccionar —</option>
-          <option value="UMAFOR 1001">Guanacevi - Villa ocampo</option>
-          <option value="UMAFOR 1002">Tepehuanes</option>
-          <option value="UMAFOR 1003">Tamazula Norte</option>
-		  <option value="UMAFOR 1004">Topia - Canelas</option>
-          <option value="UMAFOR 1005">Santiago Papasquiaro</option>
-          <option value="UMAFOR 1006">San Dimas</option>
-		  <option value="UMAFOR 1007">Otinapa - Durango</option>
-          <option value="UMAFOR 1008">El Salto - San Dimas</option>
-          <option value="UMAFOR 1009">Durango Sur</option>
-		  <option value="UMAFOR 1010">Durango - La Flor</option>
-		  <option value="UMAFOR 1011">Indigena Sur</option>
-		  <option value="UMAFOR 1012">Este de Durango</option>
-		  <option value="UMAFOR 1013">Semidesierto</option>
+          <option value="UMAFOR 1001">1001- Guanacevi - Villa ocampo</option>
+          <option value="UMAFOR 1002">1002- Tepehuanes</option>
+          <option value="UMAFOR 1003">1003- Tamazula Norte</option>
+		  <option value="UMAFOR 1004">1004- Topia - Canelas</option>
+          <option value="UMAFOR 1005">1005- Santiago Papasquiaro</option>
+          <option value="UMAFOR 1006">1006- San Dimas</option>
+		  <option value="UMAFOR 1007">1007- Otinapa - Durango</option>
+          <option value="UMAFOR 1008">1008- El Salto - San Dimas</option>
+          <option value="UMAFOR 1009">1009- Durango Sur</option>
+		  <option value="UMAFOR 1010">1010- Durango - La Flor</option>
+		  <option value="UMAFOR 1011">1011- Indigena Sur</option>
+		  <option value="UMAFOR 1012">1012- Este de Durango</option>
+		  <option value="UMAFOR 1013">1013- Semidesierto</option>
         </select>
       </div>
       <div class="fd">
@@ -710,7 +710,7 @@ input[readonly]{background:#f5f5f5;color:var(--gt);cursor:default}
 <footer style="background:var(--vo);color:rgba(255,255,255,.6);padding:20px 0;margin-top:40px">
   <div style="max-width:1200px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;font-size:11px;gap:16px">
     <div><div style="color:rgba(255,255,255,.85);font-weight:700;font-size:11.5px;letter-spacing:.5px">SEMARNAT · Oficina de Representación en Durango</div>
-    <div>Sistema de Registro MRV · Brigadas de Combate de Incendios Forestales · v5.0 · 2026</div></div>
+    <div>Sistema de Registro MRV · Brigadas de Combate de Incendios Forestales ·By TVH 2026</div></div>
     <div style="text-align:right"><div>Gobierno de México · 2024–2030</div>
     <div style="margin-top:2px">Datos RAN-SEDATU · WGS84</div></div>
   </div>
@@ -775,7 +775,7 @@ input[readonly]{background:#f5f5f5;color:var(--gt);cursor:default}
       <select id="nn-tipo">
         <option value="">— Seleccionar —</option>
         <option value="EJIDO">Ejido</option>
-        <option value="COMUNIDAD">Comunidad Indígena</option>
+        <option value="COMUNIDAD">Comunidad</option>
         <option value="otro">Otro</option>
       </select>
     </div>
@@ -794,8 +794,8 @@ input[readonly]{background:#f5f5f5;color:var(--gt);cursor:default}
 
 <!-- MODAL SUPABASE -->
 <div class="ov" id="mc"><div class="mo verde-top">
-  <h3>⚙ Configuración Supabase</h3>
-  <p class="mo-sub">Ingresa las credenciales de tu proyecto Supabase.</p>
+  <h3>⚙ Configuración </h3>
+  <p class="mo-sub">Ingresa las credenciales de tu proyecto.</p>
   <div class="fd" style="margin-bottom:12px"><label class="lb">URL del Proyecto</label>
     <input type="text" id="sb-url" placeholder="https://xxxx.supabase.co">
   </div>
@@ -1391,11 +1391,11 @@ function cargarConfig(){
 function conectar(url,key){
   try{
     const lib=window.supabase||window.Supabase;
-    if(!lib||!lib.createClient)throw new Error('Librería Supabase no disponible aún');
+    if(!lib||!lib.createClient)throw new Error('Librería no disponible aún');
     sbClient=lib.createClient(url,key);
     document.getElementById('conn-dot').classList.add('ok');
-    toast('✅ Conectado a Supabase','success');
-  }catch(e){toast('Error Supabase: '+e.message,'error');}
+    toast('✅ Conectado','success');
+  }catch(e){toast('Error: '+e.message,'error');}
 }
 function conectarSupabase(){
   const url=document.getElementById('sb-url').value.trim();
@@ -1640,13 +1640,13 @@ async function ejecutarGuardado(data) {
         infraestructura: data.infraestructura, metadata: data.meta,
       }]);
       if (error) throw error;
-      toast('✅ Registro guardado en Supabase correctamente', 'success');
+      toast('✅ Registro guardado correctamente', 'success');
     } catch(err) {
       toast('Error Supabase: ' + err.message, 'error');
       console.error('Supabase insert error:', err);
     }
   } else {
-    toast('Guardado localmente (sin conexión a Supabase)', 'info');
+    toast('Guardado localmente (sin conexión )', 'info');
   }
 
   if (btn) { btn.disabled=false; btn.innerHTML='<span>💾</span> Guardar Registro'; }
