@@ -1,0 +1,1698 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BIF Durango">
+<meta name="theme-color" content="#1a5c1a">
+<title>SEMARNAT Durango · BIF · Brigadas Forestales</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://api.tiles.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.3.1/leaflet-omnivore.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ── VARIABLES ─────────────────────────────────────── */
+:root{
+  --v:#2d7a2d;--vo:#1a5c1a;--vc:#63BC47;--vp:#e8f5e2;
+  --a:#0F4378;--ao:#082d52;--ac:#1a6abf;--ap:#e3edf8;
+  --d:#C8961A;--dc:#E4B740;--dp:#fff8e1;
+  --r:#c0392b;--rp:#fdf0f0;
+  --n:#151818;--g:#660636;
+  --b:#fff;--c:#F7F8F5;
+  --gl:#dde3e0;--gs:#f0f2ef;--gt:#5a6a5a;--to:#1e2d1e;
+  --rad:10px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+  --tab-h: 58px;
+  --topbar-h: 52px;
+}
+
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{
+  height:100%;height:100dvh;
+  font-family:"Montserrat",sans-serif;
+  font-size:13px;color:var(--to);
+  background:var(--n);
+  overflow:hidden;
+  overscroll-behavior:none;
+}
+button,input,select,textarea{font-family:"Montserrat",sans-serif;font-size:inherit}
+
+/* ── ESTRUCTURA PRINCIPAL ───────────────────────────── */
+.app{
+  display:flex;flex-direction:column;
+  height:100%;height:100dvh;
+  padding-top:var(--safe-top);
+}
+
+/* ── TOPBAR MÓVIL ──────────────────────────────────── */
+.topbar{
+  background:var(--vo);
+  display:flex;align-items:center;
+  padding:0 12px;gap:8px;
+  height:var(--topbar-h);
+  border-bottom:3px solid var(--vc);
+  z-index:200;flex-shrink:0;
+  min-height:var(--topbar-h);
+}
+.topbar-logo{
+  font-weight:800;font-size:15px;color:#fff;
+  letter-spacing:1.5px;flex-shrink:0;line-height:1;
+}
+.topbar-title{
+  color:rgba(255,255,255,.65);font-size:9px;
+  font-weight:600;letter-spacing:.3px;flex-shrink:0;
+  display:none;
+}
+@media(min-width:400px){.topbar-title{display:block}}
+.tsep{width:1px;height:22px;background:rgba(255,255,255,.18);flex-shrink:0}
+
+/* Badges compactos */
+.tbadge{
+  background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:5px;padding:3px 8px;
+  text-align:center;flex-shrink:0;
+}
+.tbadge .bl{font-size:7px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.45);line-height:1}
+.tbadge .bv{font-size:14px;font-weight:800;color:#fff;line-height:1.15}
+
+.topbar-right{margin-left:auto;display:flex;gap:5px;align-items:center}
+.pulse{width:8px;height:8px;border-radius:50%;background:#e74c3c;flex-shrink:0;transition:background .3s}
+.pulse.live{background:var(--vc);animation:pulseAnim 2s infinite}
+@keyframes pulseAnim{0%,100%{box-shadow:0 0 0 0 rgba(99,188,71,.5)}60%{box-shadow:0 0 0 7px rgba(99,188,71,0)}}
+.live-lbl{font-size:9px;font-weight:700;color:rgba(255,255,255,.65);letter-spacing:.3px;display:none}
+@media(min-width:480px){.live-lbl{display:block}}
+
+/* Botón hamburger/menú */
+.tbtn-icon{
+  background:rgba(255,255,255,.11);
+  border:1px solid rgba(255,255,255,.2);
+  border-radius:6px;
+  padding:6px 8px;
+  color:rgba(255,255,255,.85);
+  font-size:15px;cursor:pointer;
+  line-height:1;transition:all .15s;
+  flex-shrink:0;
+}
+.tbtn-icon:hover{background:rgba(255,255,255,.22)}
+.tbtn-icon.active-kml{background:#1a6abf;border-color:#1a6abf;color:#fff}
+
+/* ── CONTENIDO (entre topbar y tabbar) ──────────────── */
+.content{
+  flex:1;position:relative;overflow:hidden;
+  display:flex;flex-direction:column;
+}
+
+/* ── VISTAS (tabs) ──────────────────────────────────── */
+.view{
+  position:absolute;inset:0;
+  display:none;flex-direction:column;
+  overflow:hidden;
+  background:#fff;
+}
+.view.active{display:flex}
+
+/* ═══ VISTA: ESTADÍSTICAS ══════════════════════════════ */
+#view-stats{background:var(--c);overflow-y:auto}
+
+.stats-hero{
+  background:linear-gradient(135deg,var(--ao),var(--a));
+  padding:20px 16px 16px;color:#fff;
+}
+.stats-hero-title{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.6);margin-bottom:4px}
+.stats-hero-val{font-size:42px;font-weight:800;line-height:1;color:#fff}
+.stats-hero-sub{font-size:11px;color:rgba(255,255,255,.6);margin-top:4px}
+
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px}
+.stat-card{
+  background:#fff;border-radius:var(--rad);
+  padding:14px;box-shadow:0 2px 10px rgba(0,0,0,.06);
+  display:flex;flex-direction:column;gap:4px;
+}
+.stat-card-val{font-size:30px;font-weight:800;line-height:1}
+.stat-card-lbl{font-size:9.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--gt)}
+.stat-card.green .stat-card-val{color:var(--v)}
+.stat-card.blue  .stat-card-val{color:var(--a)}
+.stat-card.warn  .stat-card-val{color:var(--d)}
+
+.section-title{
+  font-size:9px;font-weight:800;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--gt);
+  padding:0 16px 6px;margin-top:4px;
+}
+/* Municipios card */
+.mun-card{
+  background:#fff;border-radius:var(--rad);
+  margin:0 14px 14px;
+  box-shadow:0 2px 10px rgba(0,0,0,.06);overflow:hidden;
+}
+.mun-card-head{
+  background:var(--a);padding:10px 14px;
+  color:#fff;font-size:10px;font-weight:800;
+  letter-spacing:1px;text-transform:uppercase;
+}
+.mun-list-inner{max-height:240px;overflow-y:auto}
+.mun-row{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--gl)}
+.mun-row:last-child{border-bottom:none}
+.mun-name{flex:1;font-weight:600;font-size:11.5px;color:var(--to)}
+.mun-n{font-weight:800;color:var(--a);font-size:14px}
+.mun-bar-wrap{height:3px;background:var(--gs);border-radius:2px;margin-top:2px}
+.mun-bar-fill{height:3px;background:var(--v);border-radius:2px;transition:width .3s}
+
+/* Acciones rápidas */
+.quick-actions{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:10px;padding:0 14px 14px;
+}
+.qa-btn{
+  background:#fff;border-radius:var(--rad);
+  padding:14px 12px;
+  box-shadow:0 2px 10px rgba(0,0,0,.06);
+  border:none;cursor:pointer;
+  display:flex;align-items:center;gap:10px;
+  font-size:12px;font-weight:700;color:var(--to);
+  transition:all .15s;text-align:left;
+}
+.qa-btn:active{transform:scale(.97);opacity:.9}
+.qa-btn .qa-icon{font-size:22px;line-height:1}
+.qa-btn.blue{background:var(--ap);color:var(--a)}
+.qa-btn.green{background:var(--vp);color:var(--vo)}
+.qa-btn.warn{background:var(--dp);color:#856404}
+
+/* ═══ VISTA: LISTA ═════════════════════════════════════ */
+#view-lista{background:#fff}
+
+.list-toolbar{
+  padding:10px 12px 8px;
+  border-bottom:1px solid var(--gl);
+  flex-shrink:0;background:#fff;
+  display:flex;flex-direction:column;gap:7px;
+}
+.list-search{
+  display:flex;align-items:center;gap:6px;
+  background:var(--gs);border-radius:8px;
+  padding:8px 11px;
+}
+.list-search input{
+  flex:1;border:none;background:transparent;
+  font-size:13px;outline:none;color:var(--to);
+}
+.list-search .si{font-size:15px;color:var(--gt)}
+
+.filter-row{display:flex;gap:5px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.filter-row::-webkit-scrollbar{display:none}
+.flt{
+  background:var(--gs);border:1.5px solid var(--gl);
+  border-radius:20px;padding:5px 12px;
+  font-size:10px;font-weight:700;color:var(--gt);
+  cursor:pointer;transition:all .15s;white-space:nowrap;
+  flex-shrink:0;
+}
+.flt.active{background:var(--v);border-color:var(--v);color:#fff}
+
+.list-meta{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 12px;border-bottom:1px solid var(--gl);
+  flex-shrink:0;background:#fff;
+}
+.list-meta select{
+  flex:1;font-size:11px;font-weight:600;
+  border:1.5px solid var(--gl);border-radius:5px;
+  padding:5px 8px;outline:none;color:var(--to);
+  background:#fff;
+}
+.sb-cnt{font-size:9px;color:var(--gt);font-weight:600;white-space:nowrap}
+
+.sb-list{overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+
+/* ── BRIGADA CARD MÓVIL ─────────────────────────────── */
+.bcard{
+  border-bottom:1px solid var(--gl);
+  padding:12px 14px 12px 18px;
+  cursor:pointer;transition:background .12s;
+  position:relative;border-left:4px solid transparent;
+}
+.bcard:active{background:#fafbf9}
+.bcard.selected{background:var(--vp);border-left-color:var(--v)}
+.bcard.fuera{border-left-color:var(--d)}
+.bcard-date{position:absolute;top:12px;right:12px;font-size:8.5px;color:var(--gt)}
+.bcard-folio{font-size:8px;font-weight:800;letter-spacing:1.5px;color:var(--a);background:var(--ap);padding:2px 7px;border-radius:10px;display:inline-block;margin-bottom:3px}
+.bcard-nombre{font-weight:700;font-size:12px;color:var(--to);line-height:1.3;margin-bottom:2px;padding-right:52px}
+.bcard-predio{font-size:10px;color:var(--gt);margin-bottom:5px}
+.bcard-meta{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+
+.chip{font-size:8px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;padding:2px 7px;border-radius:10px;white-space:nowrap}
+.chip.ejido{background:#e8f5e9;color:#2e7d32}
+.chip.com{background:#fff3e0;color:#e65100}
+.chip.otro{background:#f3e5f5;color:#6a1b9a}
+.chip.cap-si{background:#e3f2fd;color:#1565c0}
+.chip.cap-no{background:#fce4ec;color:#c62828}
+.chip.cap-par{background:#fff9c4;color:#f57f17}
+.chip.fuera{background:#fff3cd;color:#856404}
+.chip.dentro{background:#d4edda;color:#155724}
+.chip.neutral{background:#f3f4f6;color:#374151}
+
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:var(--gt);gap:10px;text-align:center;padding:20px}
+.empty-state .ei{font-size:38px}
+.empty-state p{font-size:12px;line-height:1.6}
+
+/* ═══ VISTA: MAPA ══════════════════════════════════════ */
+#view-mapa{position:relative}
+#mapa{width:100%;height:100%;z-index:1}
+
+/* Controles flotantes mapa */
+.map-fab-group{
+  position:absolute;top:10px;right:10px;
+  z-index:500;display:flex;flex-direction:column;gap:6px;
+}
+.map-fab{
+  background:#fff;border:none;
+  border-radius:8px;
+  box-shadow:0 2px 12px rgba(0,0,0,.18);
+  width:42px;height:42px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;cursor:pointer;transition:all .15s;
+  color:var(--to);
+}
+.map-fab:active{transform:scale(.93);opacity:.9}
+.map-fab.active{background:var(--v);color:#fff}
+
+.map-layers-panel{
+  position:absolute;top:10px;left:10px;
+  z-index:500;
+  background:#fff;border-radius:8px;
+  box-shadow:0 2px 12px rgba(0,0,0,.18);
+  overflow:hidden;display:none;
+  min-width:160px;
+}
+.map-layers-panel.open{display:block}
+.mlp-title{
+  background:var(--vo);padding:8px 12px;
+  font-size:9.5px;font-weight:800;
+  letter-spacing:1px;text-transform:uppercase;
+  color:#fff;display:flex;align-items:center;justify-content:space-between;
+}
+.mlp-title button{background:transparent;border:none;color:rgba(255,255,255,.7);font-size:14px;cursor:pointer;padding:0 2px;line-height:1}
+.mlp-row{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 12px;border-bottom:1px solid var(--gl);
+  font-size:10.5px;font-weight:600;color:var(--gt);cursor:pointer;
+  transition:background .12s;
+}
+.mlp-row:last-child{border-bottom:none}
+.mlp-row:active{background:var(--gs)}
+.mlp-row.active{background:var(--vp);color:var(--vo)}
+.mlp-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+/* Toggle switch */
+.tog-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--gl);font-size:10.5px;font-weight:600;color:var(--gt)}
+.tog-lbl{flex:1;display:flex;align-items:center;gap:6px;cursor:pointer}
+.tog{position:relative;width:34px;height:19px;flex-shrink:0}
+.tog input{opacity:0;width:0;height:0;position:absolute}
+.tog-sl{position:absolute;inset:0;background:#ccc;border-radius:19px;transition:.25s;cursor:pointer}
+.tog-sl::before{content:"";position:absolute;width:14px;height:14px;left:2.5px;bottom:2.5px;background:#fff;border-radius:50%;transition:.25s}
+.tog input:checked+.tog-sl{background:var(--v)}
+.tog input:checked+.tog-sl::before{transform:translateX(15px)}
+.kml-status{font-size:9px;color:var(--gt);font-style:italic;padding:5px 12px;background:#fff}
+
+/* Leyenda mapa */
+.map-legend{
+  position:absolute;bottom:10px;left:10px;
+  z-index:500;background:#fff;border-radius:8px;
+  box-shadow:0 2px 12px rgba(0,0,0,.15);
+  padding:8px 11px;font-size:10px;
+}
+.leg-title{font-size:8.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--gt);margin-bottom:5px}
+.leg-row{display:flex;align-items:center;gap:5px;margin-bottom:3px;font-size:9.5px;font-weight:600;color:var(--to)}
+.leg-row:last-child{margin-bottom:0}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.leg-rect{width:20px;height:7px;border-radius:2px;flex-shrink:0}
+
+/* ═══ PANEL DETALLE (BOTTOM SHEET) ════════════════════ */
+.detail-sheet{
+  position:fixed;
+  bottom:calc(var(--tab-h) + var(--safe-bot));
+  left:0;right:0;
+  z-index:800;
+  background:#fff;
+  border-radius:16px 16px 0 0;
+  box-shadow:0 -8px 40px rgba(0,0,0,.22);
+  transform:translateY(100%);
+  transition:transform .3s cubic-bezier(.25,.8,.25,1);
+  display:flex;flex-direction:column;
+  max-height:85vh;
+  border-top:4px solid var(--v);
+}
+.detail-sheet.open{transform:translateY(0)}
+.ds-handle{
+  width:36px;height:4px;background:#ddd;
+  border-radius:4px;margin:8px auto 0;flex-shrink:0;
+}
+.ds-head{
+  background:linear-gradient(135deg,var(--ao),var(--a));
+  padding:12px 16px 14px;
+  color:#fff;flex-shrink:0;
+  position:relative;border-radius:12px 12px 0 0;
+}
+.ds-close{
+  position:absolute;top:10px;right:10px;
+  background:rgba(255,255,255,.15);border:none;
+  color:#fff;cursor:pointer;font-size:13px;
+  border-radius:4px;padding:4px 8px;transition:background .15s;
+}
+.ds-folio{font-size:8.5px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.5)}
+.ds-nombre{font-size:15px;font-weight:800;margin-top:3px;padding-right:32px;line-height:1.2}
+.ds-mun{font-size:10px;color:rgba(255,255,255,.65);margin-top:2px}
+.ds-actions{
+  display:flex;gap:8px;padding:10px 14px;
+  border-bottom:1px solid var(--gl);flex-shrink:0;
+  background:var(--c);
+}
+.ds-btn{
+  flex:1;padding:9px 10px;border-radius:7px;
+  font-size:11px;font-weight:700;cursor:pointer;
+  border:1.5px solid;transition:all .15s;
+  text-align:center;
+}
+.ds-btn.edit{background:var(--ap);border-color:rgba(15,67,120,.25);color:var(--a)}
+.ds-btn.zoom{background:var(--vp);border-color:rgba(45,122,45,.25);color:var(--vo)}
+.ds-body{
+  padding:12px 16px;
+  overflow-y:auto;flex:1;
+  -webkit-overflow-scrolling:touch;
+  padding-bottom:calc(16px + var(--safe-bot));
+}
+
+.dp-sec{margin-bottom:11px;padding-bottom:11px;border-bottom:1px solid var(--gl)}
+.dp-sec:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.dp-stitle{font-size:8.5px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--vo);margin-bottom:6px}
+.dp-row{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;align-items:baseline}
+.dp-lbl{font-size:9.5px;color:var(--gt);font-weight:500;flex-shrink:0}
+.dp-val{font-size:10.5px;font-weight:700;color:var(--to);text-align:right;word-break:break-word;max-width:200px}
+.dp-ints{display:flex;flex-direction:column;gap:4px}
+.dp-int{background:var(--gs);border-radius:5px;padding:6px 9px;display:flex;align-items:center;gap:8px}
+.dp-int-n{background:var(--v);color:#fff;font-size:9px;font-weight:800;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dp-int-nombre{font-weight:700;font-size:11px}
+.dp-int-puesto{color:var(--gt);font-size:9.5px}
+
+/* ═══ TABBAR ════════════════════════════════════════════ */
+.tabbar{
+  background:#fff;
+  border-top:1px solid var(--gl);
+  display:flex;
+  height:var(--tab-h);
+  padding-bottom:var(--safe-bot);
+  flex-shrink:0;z-index:100;
+  box-shadow:0 -2px 12px rgba(0,0,0,.08);
+}
+.tab{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:3px;cursor:pointer;transition:all .15s;
+  border:none;background:transparent;
+  padding:0;
+}
+.tab .ti{font-size:20px;line-height:1;transition:transform .15s}
+.tab .tl{font-size:9px;font-weight:700;letter-spacing:.3px;color:var(--gt);transition:color .15s}
+.tab.active .ti{transform:scale(1.1)}
+.tab.active .tl{color:var(--v)}
+.tab-indicator{
+  position:absolute;bottom:calc(var(--tab-h) + var(--safe-bot));
+  height:2px;background:var(--v);
+  transition:left .25s ease;
+  left:0;width:25%;
+}
+
+/* ═══ MODALES ═══════════════════════════════════════════ */
+.ov{
+  display:none;position:fixed;inset:0;
+  background:rgba(10,20,10,.65);
+  z-index:2000;align-items:flex-end;
+  justify-content:center;
+  backdrop-filter:blur(3px);
+}
+.ov.open{display:flex}
+.mo{
+  background:#fff;width:100%;
+  box-shadow:0 -8px 40px rgba(0,0,0,.22);
+  border-radius:16px 16px 0 0;
+  max-height:92vh;display:flex;flex-direction:column;
+}
+.mo.dialog{
+  border-radius:var(--rad);
+  width:calc(100% - 32px);
+  max-width:500px;
+  align-self:center;
+  max-height:85vh;
+}
+.mo-head{
+  display:flex;align-items:center;
+  justify-content:space-between;
+  padding:14px 18px;border-bottom:1px solid var(--gl);
+  flex-shrink:0;
+}
+.mo-handle{width:36px;height:4px;background:#ddd;border-radius:4px;margin:10px auto 0;flex-shrink:0}
+.mo-head h3{font-size:13px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--vo)}
+.mo-close{background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--gt);padding:0 4px;line-height:1}
+.mo-body{padding:16px 18px;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+.mo-foot{
+  padding:12px 18px;border-top:1px solid var(--gl);
+  display:flex;gap:8px;justify-content:flex-end;
+  flex-shrink:0;padding-bottom:calc(12px + var(--safe-bot));
+}
+
+/* Formulario */
+.fg{display:grid;gap:12px}
+.fg2{grid-template-columns:1fr 1fr}
+.fg3{grid-template-columns:1fr 1fr 1fr}
+.sf{grid-column:1/-1}
+.fd{display:flex;flex-direction:column;gap:5px}
+label.lb{font-size:9.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--gt)}
+label.lb .rq{color:var(--r)}
+.mo-body input[type=text],.mo-body input[type=tel],.mo-body input[type=email],
+.mo-body input[type=date],.mo-body input[type=number],.mo-body select,.mo-body textarea{
+  font-size:14px;font-weight:500;color:var(--to);
+  background:#fff;border:1.5px solid var(--gl);border-radius:7px;
+  padding:10px 12px;width:100%;outline:none;
+  transition:border-color .15s,box-shadow .15s;
+  -webkit-appearance:none;
+}
+.mo-body input:focus,.mo-body select:focus,.mo-body textarea:focus{
+  border-color:var(--v);box-shadow:0 0 0 3px rgba(45,122,45,.1);
+}
+.mo-body input[readonly]{background:#f5f5f5;color:var(--gt)}
+.mo-body textarea{resize:vertical;min-height:70px;line-height:1.5}
+.mo-sec-title{
+  font-size:9px;font-weight:800;letter-spacing:2px;
+  text-transform:uppercase;color:var(--vo);
+  border-bottom:2px solid var(--vp);padding-bottom:5px;
+  margin:16px 0 10px;display:flex;align-items:center;gap:6px;
+}
+.mo-sec-title:first-child{margin-top:0}
+
+/* Integrantes en modal */
+.int-edit-list{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.int-edit-card{
+  background:var(--gs);border-radius:8px;padding:11px 12px;
+  position:relative;border-left:3px solid var(--v);
+}
+.int-edit-card .fg{gap:8px}
+.int-edit-card .int-num{
+  position:absolute;top:8px;right:8px;
+  background:var(--v);color:#fff;
+  font-size:9px;font-weight:800;
+  width:18px;height:18px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+}
+.btn-del-int{
+  background:transparent;border:none;
+  color:#ccc;cursor:pointer;font-size:16px;
+  padding:2px 6px;border-radius:4px;transition:all .15s;line-height:1;
+  position:absolute;bottom:8px;right:8px;
+}
+.btn-del-int:hover{color:var(--r);background:#fdf0f0}
+.btn-add-int{
+  background:var(--vp);border:1.5px dashed var(--v);border-radius:8px;
+  padding:10px 14px;font-size:12px;font-weight:700;
+  color:var(--vo);cursor:pointer;transition:all .18s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;margin-top:4px;
+}
+.btn-add-int:active{background:var(--v);color:#fff}
+
+/* Botones */
+.bp{background:var(--v);border:none;border-radius:7px;padding:11px 22px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;transition:all .18s}
+.bp:active{background:var(--vo)}
+.bp:disabled{opacity:.5;cursor:not-allowed}
+.bo{background:#fff;border:1.5px solid var(--gl);border-radius:7px;padding:10px 18px;font-size:12px;font-weight:600;color:var(--gt);cursor:pointer;transition:all .18s}
+.bo:active{border-color:var(--v);color:var(--vo)}
+.bp-r{background:var(--r);border:none;border-radius:7px;padding:11px 18px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;transition:all .18s}
+.bp-r:active{background:#922b21}
+
+/* ═══ LOADING ═══════════════════════════════════════════ */
+.loading-overlay{
+  position:fixed;inset:0;
+  background:rgba(21,24,24,.9);
+  z-index:9999;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:14px;color:#fff;
+}
+.loading-overlay.hidden{display:none}
+.spin{width:38px;height:38px;border:3px solid rgba(255,255,255,.2);border-top-color:var(--vc);border-radius:50%;animation:rot .7s linear infinite}
+.spin-sm{width:13px;height:13px;border:2px solid rgba(0,0,0,.1);border-top-color:var(--v);border-radius:50%;animation:rot .6s linear infinite;flex-shrink:0}
+@keyframes rot{to{transform:rotate(360deg)}}
+.loading-text{font-size:12px;font-weight:600;color:rgba(255,255,255,.75);letter-spacing:.5px}
+
+/* ═══ TOAST ══════════════════════════════════════════════ */
+.tc{
+  position:fixed;bottom:calc(var(--tab-h) + var(--safe-bot) + 8px);
+  right:12px;z-index:99999;
+  display:flex;flex-direction:column;gap:6px;
+  max-width:calc(100% - 24px);
+}
+.toast{
+  background:#fff;border:1px solid var(--gl);border-left:4px solid;
+  border-radius:8px;padding:9px 13px;
+  display:flex;align-items:center;gap:8px;
+  box-shadow:0 6px 24px rgba(0,0,0,.14);
+  font-size:11.5px;font-weight:500;
+  animation:tin .3s ease;
+}
+@keyframes tin{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+.toast.success{border-left-color:var(--v)}.toast.error{border-left-color:var(--r)}.toast.info{border-left-color:var(--a)}.toast.warn{border-left-color:var(--d)}
+
+/* ═══ MENÚ ACCIÓN RÁPIDA (Topbar) ════════════════════════ */
+.action-menu{
+  position:fixed;top:calc(var(--safe-top) + var(--topbar-h));
+  right:8px;z-index:900;
+  background:#fff;border-radius:10px;
+  box-shadow:0 8px 32px rgba(0,0,0,.2);
+  overflow:hidden;display:none;min-width:190px;
+}
+.action-menu.open{display:block}
+.am-item{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 16px;border-bottom:1px solid var(--gl);
+  font-size:12px;font-weight:600;color:var(--to);
+  cursor:pointer;transition:background .12s;
+}
+.am-item:last-child{border-bottom:none}
+.am-item:active{background:var(--gs)}
+.am-item .ai{font-size:17px;flex-shrink:0}
+
+/* KML popup */
+.kml-popup{font-family:"Montserrat",sans-serif;font-size:11px}
+.kml-popup strong{color:var(--ao);font-size:12px;display:block;margin-bottom:4px}
+.kml-popup .kml-tipo{display:inline-block;background:var(--ap);color:var(--a);font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;margin-bottom:4px}
+.kml-popup .kml-mun{color:var(--gt);font-size:10.5px}
+
+/* Responsive: tablets pueden ver sidebar + mapa */
+@media(min-width:768px){
+  .tabbar{display:none}
+  .tab-indicator{display:none}
+  .content{flex-direction:row}
+  .view{position:relative;display:flex !important}
+  #view-stats{display:none !important}
+  #view-lista{width:340px;flex-shrink:0;border-right:1px solid var(--gl)}
+  #view-mapa{flex:1}
+  .detail-sheet{
+    position:absolute;
+    bottom:0;right:0;left:auto;
+    width:320px;height:100%;
+    border-radius:0;border-top:none;
+    border-left:4px solid var(--v);
+    transform:translateX(100%);
+    max-height:none;
+  }
+  .detail-sheet.open{transform:translateX(0)}
+  .tc{bottom:12px}
+  .topbar-title{display:block}
+  .live-lbl{display:block}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══ TOPBAR ═══ -->
+  <div class="topbar">
+    <div class="topbar-logo">SEMARNAT</div>
+    <div class="tsep"></div>
+    <div class="topbar-title">DURANGO · MRV</div>
+    <div class="tsep"></div>
+    <div class="tbadge"><div class="bl">Brigadas</div><div class="bv" id="tb-total">—</div></div>
+    <div class="tbadge" style="display:none" id="tbadge-ints"><div class="bl">Integrantes</div><div class="bv" id="tb-ints">—</div></div>
+    <div class="topbar-right">
+      <div class="pulse" id="pulse-dot"></div>
+      <span class="live-lbl" id="live-lbl">DESCONECTADO</span>
+      <button class="tbtn-icon" onclick="toggleActionMenu()" id="btn-menu" title="Más opciones">⋮</button>
+    </div>
+  </div>
+
+  <!-- Menú de acciones rápidas -->
+  <div class="action-menu" id="action-menu">
+    <div class="am-item" onclick="toggleKML();closeActionMenu()"><span class="ai">🗺</span><span id="kml-menu-label">RAN Polígonos: OFF</span></div>
+    <div class="am-item" onclick="exportarCSV();closeActionMenu()"><span class="ai">⬇</span>Exportar CSV</div>
+    <div class="am-item" onclick="recargar();closeActionMenu()"><span class="ai">↺</span>Actualizar datos</div>
+    <div class="am-item" onclick="openModal('mc');closeActionMenu()"><span class="ai">⚙</span>Conexión Supabase</div>
+  </div>
+
+  <!-- ═══ CONTENIDO ═══ -->
+  <div class="content">
+
+    <!-- ── VISTA ESTADÍSTICAS ── -->
+    <div class="view active" id="view-stats">
+      <div class="stats-hero">
+        <div class="stats-hero-title">Brigadas Forestales · Durango MRV</div>
+        <div class="stats-hero-val" id="hero-total">—</div>
+        <div class="stats-hero-sub">brigadas registradas · <span id="hero-muns">—</span> municipios</div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card green">
+          <div class="stat-card-val" id="st-brig">0</div>
+          <div class="stat-card-lbl">🌲 Brigadas</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-card-val" id="st-ints">0</div>
+          <div class="stat-card-lbl">👤 Integrantes</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-card-val" id="st-cap">0</div>
+          <div class="stat-card-lbl">✅ Capacitadas</div>
+        </div>
+        <div class="stat-card warn">
+          <div class="stat-card-val" id="st-fuera">0</div>
+          <div class="stat-card-lbl">⚠ Fuera polígono</div>
+        </div>
+      </div>
+
+      <div class="section-title">ACCIONES RÁPIDAS</div>
+      <div class="quick-actions">
+        <button class="qa-btn green" onclick="switchTab('lista')">
+          <span class="qa-icon">📋</span><span>Ver brigadas</span>
+        </button>
+        <button class="qa-btn blue" onclick="switchTab('mapa')">
+          <span class="qa-icon">🗺</span><span>Ver en mapa</span>
+        </button>
+        <button class="qa-btn warn" onclick="exportarCSV()">
+          <span class="qa-icon">⬇</span><span>Exportar CSV</span>
+        </button>
+        <button class="qa-btn" onclick="recargar()">
+          <span class="qa-icon">↺</span><span>Actualizar</span>
+        </button>
+      </div>
+
+      <div class="section-title">POR MUNICIPIO</div>
+      <div class="mun-card">
+        <div class="mun-card-head">Distribución Municipal</div>
+        <div class="mun-list-inner" id="mun-list"></div>
+      </div>
+    </div>
+
+    <!-- ── VISTA LISTA ── -->
+    <div class="view" id="view-lista">
+      <div class="list-toolbar">
+        <div class="list-search">
+          <span class="si">🔍</span>
+          <input type="search" id="search-input" placeholder="Buscar predio, municipio, folio…" oninput="buscar(this.value)" autocomplete="off" autocorrect="off" spellcheck="false">
+        </div>
+        <div class="filter-row">
+          <button class="flt active" onclick="setFilter('all',this)">Todas</button>
+          <button class="flt" onclick="setFilter('ejido',this)">Ejidos</button>
+          <button class="flt" onclick="setFilter('comunidad',this)">Comunidades</button>
+          <button class="flt" onclick="setFilter('cap',this)">✅ Capacitadas</button>
+          <button class="flt" onclick="setFilter('fuera',this)">⚠ Fuera</button>
+          <button class="flt" onclick="setFilter('coords',this)">Con coords</button>
+        </div>
+      </div>
+      <div class="list-meta">
+        <select id="sort-sel" onchange="aplicarFiltros()">
+          <option value="fecha_desc">Fecha ↓ reciente</option>
+          <option value="fecha_asc">Fecha ↑ antigua</option>
+          <option value="nombre_asc">Brigada A–Z</option>
+          <option value="municipio_asc">Municipio A–Z</option>
+          <option value="ints_desc">Más integrantes</option>
+        </select>
+        <span class="sb-cnt" id="sb-cnt">0 registros</span>
+      </div>
+      <div class="sb-list" id="brigadas-list">
+        <div class="empty-state"><div class="ei">🔌</div><p>Conectando a Supabase…</p></div>
+      </div>
+    </div>
+
+    <!-- ── VISTA MAPA ── -->
+    <div class="view" id="view-mapa">
+      <div id="mapa"></div>
+
+      <!-- FAB controles mapa (derecha) -->
+      <div class="map-fab-group">
+        <button class="map-fab" onclick="toggleLayersPanel()" title="Capas" id="fab-layers">🗂</button>
+        <button class="map-fab" onclick="centrarDurango()" title="Centrar">🎯</button>
+        <button class="map-fab" onclick="fitAll()" title="Ver todo">⛶</button>
+      </div>
+
+      <!-- Panel de capas (izquierda) -->
+      <div class="map-layers-panel" id="map-layers-panel">
+        <div class="mlp-title">
+          Capas del mapa
+          <button onclick="toggleLayersPanel()">✕</button>
+        </div>
+        <div class="mlp-row active" id="btn-osm" onclick="setLayer('osm',this)">
+          <div class="mlp-dot" style="background:#2d7a2d"></div>Mapa base
+        </div>
+        <div class="mlp-row" id="btn-sat" onclick="setLayer('sat',this)">
+          <div class="mlp-dot" style="background:#1a3a5c"></div>Satélite
+        </div>
+        <div class="mlp-row" id="btn-topo" onclick="setLayer('topo',this)">
+          <div class="mlp-dot" style="background:#8B4513"></div>Topográfico
+        </div>
+        <div class="tog-row">
+          <label class="tog-lbl" for="tog-brigadas">
+            <div class="mlp-dot" style="background:#2d7a2d;border-radius:50%"></div>Brigadas MRV
+          </label>
+          <label class="tog"><input type="checkbox" id="tog-brigadas" checked onchange="toggleBrigadasLayer(this.checked)"><span class="tog-sl"></span></label>
+        </div>
+        <div class="tog-row">
+          <label class="tog-lbl" for="tog-kml">
+            <div class="mlp-dot" style="background:#1a6abf"></div>RAN Núcleos
+          </label>
+          <label class="tog"><input type="checkbox" id="tog-kml" onchange="toggleKMLLayer(this.checked)"><span class="tog-sl"></span></label>
+        </div>
+        <div class="kml-status" id="kml-status">KML no cargado</div>
+      </div>
+
+      <!-- Leyenda -->
+      <div class="map-legend">
+        <div class="leg-title">Leyenda</div>
+        <div class="leg-row"><div class="leg-dot" style="background:#2d7a2d"></div>Dentro polígono</div>
+        <div class="leg-row"><div class="leg-dot" style="background:#C8961A"></div>Fuera polígono</div>
+        <div class="leg-row"><div class="leg-rect" style="background:rgba(74,171,231,.4);border:1.5px solid #1a6abf"></div>Núcleo Agrario</div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- ═══ PANEL DETALLE (Bottom Sheet) ═══ -->
+  <div class="detail-sheet" id="detail-panel">
+    <div class="ds-handle"></div>
+    <div class="ds-head">
+      <button class="ds-close" onclick="cerrarDetalle()">✕</button>
+      <div class="ds-folio" id="dp-folio">—</div>
+      <div class="ds-nombre" id="dp-nombre">—</div>
+      <div class="ds-mun" id="dp-mun">—</div>
+    </div>
+    <div class="ds-actions">
+      <button class="ds-btn zoom" onclick="zoomBrigadaActual()">🔍 Zoom</button>
+      <button class="ds-btn edit" onclick="abrirEdicion()">✏ Editar</button>
+    </div>
+    <div class="ds-body" id="dp-body"></div>
+  </div>
+
+  <!-- ═══ TABBAR ═══ -->
+  <div class="tabbar" id="tabbar">
+    <button class="tab active" id="tab-stats" onclick="switchTab('stats')">
+      <span class="ti">📊</span>
+      <span class="tl">Estadísticas</span>
+    </button>
+    <button class="tab" id="tab-lista" onclick="switchTab('lista')">
+      <span class="ti">📋</span>
+      <span class="tl">Brigadas</span>
+    </button>
+    <button class="tab" id="tab-mapa" onclick="switchTab('mapa')">
+      <span class="ti">🗺</span>
+      <span class="tl">Mapa</span>
+    </button>
+    <button class="tab" id="tab-cfg" onclick="openModal('mc')">
+      <span class="ti">⚙</span>
+      <span class="tl">Conexión</span>
+    </button>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ═══ MODAL EDICIÓN ═══ -->
+<div class="ov" id="me">
+  <div class="mo" style="max-height:92vh;display:flex;flex-direction:column">
+    <div class="mo-handle"></div>
+    <div class="mo-head">
+      <h3>✏ Editar Brigada</h3>
+      <button class="mo-close" onclick="closeModal('me')">×</button>
+    </div>
+    <div class="mo-body" style="overflow-y:auto;flex:1">
+
+      <div class="mo-sec-title">🌲 Predio</div>
+      <div class="fg">
+        <div class="fd"><label class="lb">Nombre del Núcleo Agrario</label>
+          <input type="text" id="e-nombre_predio" readonly></div>
+        <div class="fg fg2">
+          <div class="fd"><label class="lb">Municipio</label>
+            <input type="text" id="e-municipio" readonly></div>
+          <div class="fd"><label class="lb">Tipo de Tenencia</label>
+            <input type="text" id="e-tipo_predio" readonly></div>
+        </div>
+        <div class="fg fg2">
+          <div class="fd"><label class="lb">Fecha de Registro <span class="rq">*</span></label>
+            <input type="date" id="e-fecha_registro"></div>
+          <div class="fd"><label class="lb">Oficio SEMARNAT</label>
+            <input type="text" id="e-oficio_predio" placeholder="Oficio de autorización"></div>
+        </div>
+        <div class="fd"><label class="lb">UMAFOR / Región</label>
+          <select id="e-region">
+            <option value="">— Seleccionar —</option>
+            <option value="UMAFOR 1001">Guanaceví - Villa Ocampo</option>
+            <option value="UMAFOR 1002">Tepehuanes</option>
+            <option value="UMAFOR 1003">Tamazula Norte</option>
+            <option value="UMAFOR 1004">Topia - Canelas</option>
+            <option value="UMAFOR 1005">Santiago Papasquiaro</option>
+            <option value="UMAFOR 1006">San Dimas</option>
+            <option value="UMAFOR 1007">Otinapa - Durango</option>
+            <option value="UMAFOR 1008">El Salto - San Dimas</option>
+            <option value="UMAFOR 1009">Durango Sur</option>
+            <option value="UMAFOR 1010">Durango - La Flor</option>
+            <option value="UMAFOR 1011">Indígena Sur</option>
+            <option value="UMAFOR 1012">Este de Durango</option>
+            <option value="UMAFOR 1013">Semidesierto</option>
+          </select></div>
+      </div>
+
+      <div class="mo-sec-title">👤 Responsable Técnico</div>
+      <div class="fg">
+        <div class="fd"><label class="lb">Nombre Completo <span class="rq">*</span></label>
+          <input type="text" id="e-responsable_nombre" placeholder="Nombre completo"></div>
+        <div class="fg fg2">
+          <div class="fd"><label class="lb">Teléfono <span class="rq">*</span></label>
+            <input type="tel" id="e-responsable_telefono" placeholder="618 XXX XXXX"></div>
+          <div class="fd"><label class="lb">Correo electrónico</label>
+            <input type="email" id="e-responsable_email" placeholder="correo@ejemplo.com"></div>
+        </div>
+      </div>
+
+      <div class="mo-sec-title">👥 Brigada</div>
+      <div class="fg">
+        <div class="fd"><label class="lb">Nombre de la Brigada <span class="rq">*</span></label>
+          <input type="text" id="e-brigada_nombre" placeholder="Nombre de la brigada"></div>
+        <div class="fg fg2">
+          <div class="fd"><label class="lb">Tipo de Brigada</label>
+            <select id="e-brigada_tipo">
+              <option value="">— Seleccionar —</option>
+              <option value="ejidal">Ejidal</option>
+              <option value="comunitaria">Comunitaria</option>
+              <option value="municipal">Municipal</option>
+              <option value="voluntaria">Voluntaria</option>
+              <option value="otro">Otro</option>
+            </select></div>
+          <div class="fd"><label class="lb">Capacitación</label>
+            <select id="e-capacitacion">
+              <option value="">— Seleccionar —</option>
+              <option value="si">Sí — con constancia</option>
+              <option value="parcial">Parcial / en proceso</option>
+              <option value="no">Sin capacitación</option>
+            </select></div>
+        </div>
+      </div>
+
+      <div class="mo-sec-title">📍 Ubicación</div>
+      <div class="fg fg2">
+        <div class="fd"><label class="lb">Latitud</label>
+          <input type="number" id="e-latitud" step="0.000001" placeholder="24.000000" inputmode="decimal"></div>
+        <div class="fd"><label class="lb">Longitud</label>
+          <input type="number" id="e-longitud" step="0.000001" placeholder="-104.000000" inputmode="decimal"></div>
+        <div class="fd"><label class="lb">Altitud (m.s.n.m.)</label>
+          <input type="number" id="e-altitud" step="1" placeholder="2450" inputmode="numeric"></div>
+        <div class="fd"><label class="lb">Tipo de Sitio</label>
+          <select id="e-tipo_sitio">
+            <option value="base">Base de Operaciones</option>
+            <option value="bodega">Bodega de Equipo</option>
+            <option value="comunidad">Centro de la Comunidad</option>
+            <option value="otro">Otro</option>
+          </select></div>
+        <div class="fd sf"><label class="lb">Estado Polígono</label>
+          <select id="e-dentro_poligono">
+            <option value="true">✅ Dentro del polígono</option>
+            <option value="false">⚠ Fuera del polígono</option>
+          </select></div>
+      </div>
+      <div class="fd" style="margin-top:12px"><label class="lb">Descripción / Referencias</label>
+        <textarea id="e-descripcion_sitio" placeholder="Referencias de acceso…"></textarea></div>
+
+      <div class="mo-sec-title" style="justify-content:space-between">
+        <span>👤 Integrantes</span>
+        <button class="btn-add-int" style="width:auto;padding:5px 12px;font-size:10.5px;border-radius:6px;margin:0" onclick="addIntEditRow()">＋ Agregar</button>
+      </div>
+      <div class="int-edit-list" id="int-edit-list"></div>
+
+    </div>
+    <div class="mo-foot">
+      <button class="bo" onclick="closeModal('me')">Cancelar</button>
+      <button class="bp-r" onclick="confirmarEliminar()" style="margin-right:auto">🗑</button>
+      <button class="bp" id="btn-guardar-edit" onclick="guardarEdicion()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL CONEXIÓN SUPABASE ═══ -->
+<div class="ov" id="mc">
+  <div class="mo dialog" style="display:flex;flex-direction:column">
+    <div class="mo-head">
+      <h3>⚙ Conexión Supabase</h3>
+      <button class="mo-close" onclick="closeModal('mc')">×</button>
+    </div>
+    <div class="mo-body">
+      <div id="conn-ok" style="display:none;background:#d4edda;border:1.5px solid #28a745;border-radius:7px;padding:10px 14px;font-size:12px;font-weight:700;color:#155724;margin-bottom:12px">✅ Conectado correctamente</div>
+      <div class="fd" style="margin-bottom:12px"><label class="lb">URL del Proyecto</label>
+        <input type="text" id="sb-url" placeholder="https://xxxx.supabase.co" autocomplete="off"></div>
+      <div class="fd"><label class="lb">Anon / Public API Key</label>
+        <input type="text" id="sb-key" placeholder="eyJhbGciOiJI…" style="font-size:10px" autocomplete="off"></div>
+    </div>
+    <div class="mo-foot">
+      <button class="bo" onclick="closeModal('mc')">Cerrar</button>
+      <button class="bp" onclick="conectarDesdeModal()">🔗 Reconectar</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="loading-overlay hidden" id="loading">
+  <div class="spin"></div>
+  <div class="loading-text" id="loading-txt">Cargando…</div>
+</div>
+<div class="tc" id="toasts"></div>
+
+<!-- ════════════════════ SCRIPTS ════════════════════ -->
+<script>
+// ── CREDENCIALES ────────────────────────────────────
+const SB_URL = 'https://mkwuyekionplbthodqxl.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rd3V5ZWtpb25wbGJ0aG9kcXhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNzczMDksImV4cCI6MjA4ODY1MzMwOX0.wmDk2KECWrFv59vuR1OZM6gQNMRY1GUPcey-I1epIto';
+const KML_URL = 'https://dgo8mx.github.io/MF-BIF/ran_nucleosagrarios_durango.kml';
+
+const PUESTOS = ['Jefe de Brigada','Subjefe de Brigada','Combatiente Forestal','Operador de Motosierra',
+  'Operador de Maquinaria','Vigilante Forestal','Técnico Forestal','Apoyo Logístico','Otro'];
+
+// ── GLOBALS ─────────────────────────────────────────
+let sbClient = null;
+let mapa, brigLayer, kmlLayer, capaBase = {};
+let todasBrigadas = [], brigadasFiltradas = [];
+let marcadores = {};
+let filtroActivo = 'all', busquedaActiva = '';
+let selectedId = null, brigadaActual = null;
+let kmlCargado = false, kmlVisible = false;
+let realtimeSub = null;
+let intEditIdx = 0;
+let activeTab = 'stats';
+let mapaInicializado = false;
+
+// ── TABS ─────────────────────────────────────────────
+function switchTab(tab) {
+  activeTab = tab;
+  // Vistas
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const view = document.getElementById('view-' + tab);
+  if (view) view.classList.add('active');
+  // Tabs
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const tabEl = document.getElementById('tab-' + tab);
+  if (tabEl) tabEl.classList.add('active');
+
+  // Inicializar mapa la primera vez que se activa
+  if (tab === 'mapa' && !mapaInicializado) {
+    setTimeout(() => { initMapa(); mapaInicializado = true; }, 50);
+  } else if (tab === 'mapa' && mapa) {
+    setTimeout(() => mapa.invalidateSize(), 50);
+  }
+  closeActionMenu();
+}
+
+// ── MENÚ TOPBAR ──────────────────────────────────────
+function toggleActionMenu() {
+  document.getElementById('action-menu').classList.toggle('open');
+}
+function closeActionMenu() {
+  document.getElementById('action-menu').classList.remove('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#action-menu') && !e.target.closest('#btn-menu')) closeActionMenu();
+  if (!e.target.closest('#map-layers-panel') && !e.target.closest('#fab-layers')) {
+    document.getElementById('map-layers-panel')?.classList.remove('open');
+  }
+});
+
+// ── MAPA ────────────────────────────────────────────
+function initMapa() {
+  mapa = L.map('mapa', { zoomControl: false }).setView([24.5, -104.65], 7);
+  // Zoom control en posición mejor para móvil
+  L.control.zoom({ position: 'bottomright' }).addTo(mapa);
+
+  capaBase.osm  = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    { attribution:'© OpenStreetMap', maxZoom:19 });
+  capaBase.sat  = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { attribution:'© Esri', maxZoom:19 });
+  capaBase.topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    { attribution:'© OpenTopoMap', maxZoom:17 });
+  capaBase.osm.addTo(mapa);
+  brigLayer = L.layerGroup().addTo(mapa);
+  mapa.on('click', () => {
+    // Solo cerrar detalle en mapa si no hay brigadaActual con tap en marcador
+  });
+  renderMarcadores();
+}
+
+function setLayer(n, el) {
+  Object.values(capaBase).forEach(c => mapa.removeLayer(c));
+  capaBase[n].addTo(mapa);
+  document.querySelectorAll('.mlp-row').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+
+function toggleLayersPanel() {
+  document.getElementById('map-layers-panel').classList.toggle('open');
+}
+
+function centrarDurango() {
+  if (mapa) mapa.setView([24.5, -104.65], 7);
+}
+
+function fitAll() {
+  if (!mapa) return;
+  const pts = brigadasFiltradas.filter(b => b.latitud && b.longitud);
+  if (!pts.length) { toast('Sin brigadas con coordenadas visibles','warn'); return; }
+  mapa.fitBounds(L.latLngBounds(pts.map(b => [b.latitud, b.longitud])), { padding:[50,50], maxZoom:14 });
+}
+
+function toggleBrigadasLayer(on) {
+  if (!mapa) return;
+  on ? brigLayer.addTo(mapa) : mapa.removeLayer(brigLayer);
+}
+
+// ── KML LAYER ───────────────────────────────────────
+function toggleKML() {
+  const chk = document.getElementById('tog-kml');
+  chk.checked = !chk.checked;
+  toggleKMLLayer(chk.checked);
+}
+
+function toggleKMLLayer(on) {
+  const btn   = document.getElementById('kml-menu-label');
+  const chk   = document.getElementById('tog-kml');
+  const stat  = document.getElementById('kml-status');
+  chk.checked = on;
+
+  if (!on) {
+    if (kmlLayer && mapa) mapa.removeLayer(kmlLayer);
+    kmlVisible = false;
+    if (btn) btn.textContent = 'RAN Polígonos: OFF';
+    stat.textContent = 'KML oculto';
+    return;
+  }
+
+  if (btn) btn.textContent = 'RAN Polígonos: ON';
+  if (!mapa) { toast('Abre el mapa primero','warn'); return; }
+
+  if (kmlLayer && kmlCargado) {
+    kmlLayer.addTo(mapa);
+    kmlVisible = true;
+    stat.textContent = '✅ 1,992 núcleos visibles';
+    return;
+  }
+
+  stat.innerHTML = '<span style="display:flex;align-items:center;gap:6px"><div class="spin-sm"></div> Cargando KML…</span>';
+  toast('Cargando capa RAN Núcleos Agrarios…','info');
+
+  kmlLayer = omnivore.kml(KML_URL, null, L.geoJSON(null, {
+    style: { color:'#1a6abf', weight:1.5, fillColor:'#4EABE7', fillOpacity:.12, opacity:.85 },
+    onEachFeature: (feature, layer) => {
+      const p = feature.properties || {};
+      const nombre = p.NombreNucleoAgrario || p.name || '—';
+      const tipo   = p.TipoNucleoAgrario   || '—';
+      const mun    = p.NombreMunicipio      || '—';
+      const id     = p.IdNucleoAgrario      || '—';
+      layer.bindPopup(`<div class="kml-popup"><strong>${nombre}</strong><span class="kml-tipo">${tipo}</span><div class="kml-mun">📍 ${mun} · Durango</div><div style="margin-top:4px;font-size:9.5px;color:#888">ID RAN: ${id}</div></div>`, { maxWidth: 240 });
+    }
+  }))
+  .on('ready', () => {
+    kmlCargado = true; kmlVisible = true;
+    kmlLayer.bringToBack();
+    stat.textContent = '✅ 1,992 núcleos cargados';
+    toast('✅ Capa RAN cargada — 1,992 núcleos agrarios','success');
+  })
+  .on('error', (e) => {
+    kmlCargado = false; kmlVisible = false;
+    chk.checked = false;
+    if (btn) btn.textContent = 'RAN Polígonos: OFF';
+    stat.textContent = '❌ Error al cargar KML';
+    toast('Error al cargar KML. Verifica la URL de GitHub.','error');
+  });
+  kmlLayer.addTo(mapa);
+}
+
+// ── SUPABASE ─────────────────────────────────────────
+function inicializarConexion() {
+  const url = localStorage.getItem('sb_url') || SB_URL;
+  const key = localStorage.getItem('sb_key') || SB_KEY;
+  document.getElementById('sb-url').value = url;
+  document.getElementById('sb-key').value = key;
+  conectar(url, key);
+}
+
+async function conectar(url, key) {
+  try {
+    const lib = window.supabase;
+    if (!lib?.createClient) throw new Error('Librería Supabase no disponible');
+    sbClient = lib.createClient(url, key);
+    document.getElementById('pulse-dot').classList.add('live');
+    document.getElementById('live-lbl').textContent = 'EN VIVO';
+    document.getElementById('conn-ok').style.display = 'block';
+    await cargarBrigadas();
+    suscribirRealtime();
+  } catch(e) {
+    document.getElementById('live-lbl').textContent = 'ERROR';
+    toast('Error de conexión: ' + e.message, 'error');
+    mostrarVacio('Error de conexión. Usa ⚙ Conexión para configurar.');
+  }
+}
+
+function conectarDesdeModal() {
+  const url = document.getElementById('sb-url').value.trim();
+  const key = document.getElementById('sb-key').value.trim();
+  if (!url || !key) { toast('Ingresa URL y API Key','warn'); return; }
+  localStorage.setItem('sb_url', url);
+  localStorage.setItem('sb_key', key);
+  if (realtimeSub) sbClient?.removeChannel(realtimeSub);
+  closeModal('mc');
+  conectar(url, key);
+}
+
+// ── CARGAR DATOS ─────────────────────────────────────
+async function cargarBrigadas() {
+  if (!sbClient) return;
+  setLoading(true,'Cargando brigadas MRV…');
+  try {
+    const { data, error } = await sbClient
+      .from('brigadas_forestales')
+      .select(`id,folio,fecha_registro,nombre_predio,municipio,localidad,tipo_predio,
+               region,id_nucleo_ran,oficio_predio,brigada_nombre,brigada_tipo,
+               capacitacion,num_integrantes,integrantes,latitud,longitud,altitud,
+               tipo_sitio,precision_dato,datum,dentro_poligono,fuera_confirmado,
+               descripcion_sitio,responsable_nombre,responsable_telefono,
+               responsable_email,infraestructura,created_at`)
+      .order('fecha_registro', { ascending: false })
+      .order('created_at',     { ascending: false });
+    if (error) throw error;
+    todasBrigadas = data || [];
+    actualizarStats();
+    actualizarMunicipios();
+    aplicarFiltros();
+    if (mapaInicializado) renderMarcadores();
+    toast(`${todasBrigadas.length} brigada${todasBrigadas.length!==1?'s':''} cargada${todasBrigadas.length!==1?'s':''}`, 'success');
+  } catch(e) {
+    toast('Error cargando datos: ' + e.message, 'error');
+    mostrarVacio('Error: ' + e.message);
+  } finally { setLoading(false); }
+}
+
+async function recargar() {
+  if (!sbClient) { toast('Sin conexión','warn'); return; }
+  await cargarBrigadas();
+}
+
+// ── REALTIME ─────────────────────────────────────────
+function suscribirRealtime() {
+  if (!sbClient) return;
+  realtimeSub = sbClient.channel('mrv_dash_mobile')
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'brigadas_forestales' }, p => {
+      if (todasBrigadas.find(b => b.id === p.new.id)) return;
+      todasBrigadas.unshift(p.new);
+      actualizarStats(); actualizarMunicipios(); aplicarFiltros();
+      if (p.new.latitud && p.new.longitud && mapaInicializado) agregarMarcador(p.new, true);
+      toast(`🆕 ${p.new.brigada_nombre} · ${p.new.municipio}`, 'success');
+    })
+    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'brigadas_forestales' }, p => {
+      const i = todasBrigadas.findIndex(b => b.id === p.new.id);
+      if (i !== -1) {
+        todasBrigadas[i] = { ...todasBrigadas[i], ...p.new };
+        if (selectedId === p.new.id) { brigadaActual = todasBrigadas[i]; mostrarDetalle(todasBrigadas[i]); }
+        actualizarStats(); aplicarFiltros();
+        if (mapaInicializado) renderMarcadores();
+        toast(`🔄 Actualizado: ${p.new.brigada_nombre}`, 'info');
+      }
+    })
+    .subscribe();
+}
+
+// ── FILTROS ──────────────────────────────────────────
+function setFilter(f, btn) {
+  filtroActivo = f;
+  document.querySelectorAll('.flt').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  aplicarFiltros();
+}
+function buscar(q) { busquedaActiva = q.toLowerCase().trim(); aplicarFiltros(); }
+
+function aplicarFiltros() {
+  let d = [...todasBrigadas];
+  switch(filtroActivo) {
+    case 'ejido':     d = d.filter(b => (b.tipo_predio||'').toLowerCase()==='ejido'); break;
+    case 'comunidad': d = d.filter(b => (b.tipo_predio||'').toLowerCase()==='comunidad'); break;
+    case 'cap':       d = d.filter(b => b.capacitacion==='si'); break;
+    case 'fuera':     d = d.filter(b => b.dentro_poligono===false); break;
+    case 'coords':    d = d.filter(b => b.latitud && b.longitud); break;
+  }
+  if (busquedaActiva) {
+    d = d.filter(b =>
+      (b.nombre_predio||'').toLowerCase().includes(busquedaActiva) ||
+      (b.municipio||'').toLowerCase().includes(busquedaActiva) ||
+      (b.brigada_nombre||'').toLowerCase().includes(busquedaActiva) ||
+      (b.responsable_nombre||'').toLowerCase().includes(busquedaActiva) ||
+      (b.folio||'').toLowerCase().includes(busquedaActiva));
+  }
+  const sort = document.getElementById('sort-sel')?.value || 'fecha_desc';
+  switch(sort) {
+    case 'fecha_desc':    d.sort((a,b)=>(b.fecha_registro||'').localeCompare(a.fecha_registro||'')); break;
+    case 'fecha_asc':     d.sort((a,b)=>(a.fecha_registro||'').localeCompare(b.fecha_registro||'')); break;
+    case 'nombre_asc':    d.sort((a,b)=>(a.brigada_nombre||'').localeCompare(b.brigada_nombre||'')); break;
+    case 'municipio_asc': d.sort((a,b)=>(a.municipio||'').localeCompare(b.municipio||'')); break;
+    case 'ints_desc':     d.sort((a,b)=>(b.num_integrantes||0)-(a.num_integrantes||0)); break;
+  }
+  brigadasFiltradas = d;
+  document.getElementById('sb-cnt').textContent = `${d.length} registro${d.length!==1?'s':''}`;
+  renderLista();
+  if (mapaInicializado) actualizarVisibilidadMarcadores();
+}
+
+// ── RENDER LISTA ─────────────────────────────────────
+function renderLista() {
+  const list = document.getElementById('brigadas-list');
+  if (!brigadasFiltradas.length) {
+    list.innerHTML = `<div class="empty-state"><div class="ei">${todasBrigadas.length===0?'📭':'🔍'}</div>
+      <p>${todasBrigadas.length===0?'Sin brigadas registradas aún':'Sin resultados para la búsqueda'}</p></div>`;
+    return;
+  }
+  list.innerHTML = '';
+  brigadasFiltradas.forEach(b => {
+    const esFuera = b.dentro_poligono === false;
+    const card = document.createElement('div');
+    card.className = `bcard ${esFuera?'fuera':''} ${b.id===selectedId?'selected':''}`;
+    const tChip = (() => {
+      const t = (b.tipo_predio||'').toLowerCase();
+      if (t==='ejido') return '<span class="chip ejido">EJIDO</span>';
+      if (t==='comunidad') return '<span class="chip com">COMUNIDAD</span>';
+      if (t) return `<span class="chip otro">${t.toUpperCase()}</span>`;
+      return '';
+    })();
+    const capChip = b.capacitacion==='si'?'<span class="chip cap-si">✓ Cap.</span>':
+      b.capacitacion==='no'?'<span class="chip cap-no">Sin cap.</span>':
+      b.capacitacion==='parcial'?'<span class="chip cap-par">Parcial</span>':'';
+    const polyChip = esFuera?'<span class="chip fuera">⚠ Fuera</span>':
+      (b.latitud?'<span class="chip dentro">✓ Polígono</span>':'<span class="chip neutral">Sin mapa</span>');
+    const fecha = (b.fecha_registro||'').split('T')[0]||'—';
+
+    card.innerHTML = `
+      <div class="bcard-date">${fecha}</div>
+      <div class="bcard-folio">${b.folio||'—'}</div>
+      <div class="bcard-nombre">${b.brigada_nombre||b.nombre_predio||'—'}</div>
+      <div class="bcard-predio">🌲 ${b.nombre_predio||'—'} · ${b.municipio||'—'}</div>
+      <div class="bcard-meta">${tChip}${capChip}<span class="chip neutral">👤 ${b.num_integrantes||0}</span>${polyChip}</div>`;
+    card.addEventListener('click', () => seleccionar(b));
+    list.appendChild(card);
+  });
+}
+
+function mostrarVacio(msg) {
+  document.getElementById('brigadas-list').innerHTML = `<div class="empty-state"><div class="ei">⚠️</div><p>${msg}</p></div>`;
+}
+
+// ── MARCADORES ───────────────────────────────────────
+function renderMarcadores() {
+  if (!brigLayer) return;
+  brigLayer.clearLayers(); marcadores = {};
+  todasBrigadas.forEach(b => agregarMarcador(b, false));
+}
+
+function agregarMarcador(b, nueva=false) {
+  if (!b.latitud || !b.longitud || !brigLayer) return;
+  const fuera = b.dentro_poligono === false;
+  const color = fuera ? '#C8961A' : '#2d7a2d';
+  const em    = fuera ? '⚠️' : '🌲';
+  const sz    = 30;
+  const icono = L.divIcon({
+    className:'',
+    html:`<div style="width:${sz}px;height:${sz}px;background:${color};border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2.5px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center">
+          <span style="transform:rotate(45deg);font-size:12px">${em}</span></div>`,
+    iconSize:[sz,sz], iconAnchor:[sz/2,sz], popupAnchor:[0,-sz-4]
+  });
+  const m = L.marker([b.latitud, b.longitud], { icon: icono });
+  m.bindTooltip(`<strong>${b.brigada_nombre||b.nombre_predio}</strong><br>📍 ${b.municipio} · 👤 ${b.num_integrantes||0} int.`,
+    { direction:'top', offset:[0,-sz-4] });
+  m.on('click', e => {
+    L.DomEvent.stopPropagation(e);
+    seleccionar(b);
+  });
+  m.addTo(brigLayer);
+  marcadores[b.id] = m;
+}
+
+function actualizarVisibilidadMarcadores() {
+  if (!brigLayer) return;
+  const ids = new Set(brigadasFiltradas.map(b => b.id));
+  Object.entries(marcadores).forEach(([id, m]) => {
+    if (ids.has(id)) { if (!brigLayer.hasLayer(m)) brigLayer.addLayer(m); }
+    else brigLayer.removeLayer(m);
+  });
+}
+
+// ── SELECCIONAR Y DETALLE ────────────────────────────
+function seleccionar(b) {
+  selectedId = b.id; brigadaActual = b;
+  renderLista();
+  if (b.latitud && b.longitud && mapa) {
+    // Si estamos en lista, ir al mapa
+    if (activeTab === 'lista') {
+      switchTab('mapa');
+      setTimeout(() => {
+        mapa.setView([b.latitud, b.longitud], 14, {animate:true});
+      }, 100);
+    } else {
+      mapa.setView([b.latitud, b.longitud], 14, {animate:true});
+    }
+  }
+  mostrarDetalle(b);
+}
+
+function mostrarDetalle(b) {
+  const panel = document.getElementById('detail-panel');
+  document.getElementById('dp-folio').textContent  = b.folio || '—';
+  document.getElementById('dp-nombre').textContent = b.brigada_nombre || b.nombre_predio || '—';
+  document.getElementById('dp-mun').textContent    = `${b.nombre_predio||'—'} · ${b.municipio||'—'}`;
+  panel.style.borderTopColor = b.dentro_poligono===false ? 'var(--d)' : 'var(--v)';
+
+  const v = x => (x!==null && x!==undefined && x!=='') ? x : '—';
+  const polyBadge = b.dentro_poligono===false
+    ? '<span style="background:#fff3cd;color:#856404;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:700">⚠ Fuera del polígono</span>'
+    : (b.latitud?'<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:700">✓ Dentro del polígono</span>':'—');
+  const capLabel = b.capacitacion==='si'?'✅ Con capacitación':b.capacitacion==='no'?'❌ Sin capacitación':'⚠️ Parcial';
+  const ints = Array.isArray(b.integrantes)?b.integrantes:[];
+  const intsHtml = ints.length
+    ? ints.map((i,n)=>`<div class="dp-int">
+        <div class="dp-int-n">${n+1}</div>
+        <div><div class="dp-int-nombre">${v(i.nombre)}</div>
+        <div class="dp-int-puesto">${v(i.puesto)}${i.telefono?' · '+i.telefono:''}</div></div></div>`).join('')
+    : '<div style="font-size:10.5px;color:var(--gt)">Sin integrantes</div>';
+
+  document.getElementById('dp-body').innerHTML = `
+    <div class="dp-sec">
+      <div class="dp-stitle">🏡 Predio</div>
+      <div class="dp-row"><span class="dp-lbl">Núcleo Agrario</span><span class="dp-val">${v(b.nombre_predio)}</span></div>
+      <div class="dp-row"><span class="dp-lbl">Municipio</span><span class="dp-val">${v(b.municipio)}</span></div>
+      <div class="dp-row"><span class="dp-lbl">Tipo</span><span class="dp-val">${v(b.tipo_predio)}</span></div>
+      <div class="dp-row"><span class="dp-lbl">UMAFOR</span><span class="dp-val">${v(b.region)}</span></div>
+      <div class="dp-row"><span class="dp-lbl">Oficio</span><span class="dp-val">${v(b.oficio_predio)}</span></div>
+      <div class="dp-row"><span class="dp-lbl">Registro</span><span class="dp-val">${v(b.fecha_registro)}</span></div>
+    </div>
+    <div class="dp-sec">
+      <div class="dp-stitle">👥 Brigada</div>
+      <div class="dp-row"><span class="dp-lbl">Nombre</span><span class="dp-val">${v(b.brigada_nombre)}</span></div>
+      <div class="dp-row"><span class="dp-lbl">Tipo</span><span class="dp-val">${v(b.brigada_tipo)}</span></div>
+      <div class="dp-row"><span class="dp-lbl">Capacitación</span><span class="dp-val">${capLabel}</span></div>
+      <div class="dp-row"><span class="dp-lbl">Integrantes</span><span class="dp-val" style="color:var(--a);font-size:16px">${b.num_integrantes||0}</span></div>
+    </div>
+    <div class="dp-sec">
+      <div class="dp-stitle">📍 Ubicación</div>
+      <div class="dp-row"><span class="dp-lbl">Polígono</span><span class="dp-val">${polyBadge}</span></div>
+      ${b.latitud?`<div class="dp-row"><span class="dp-lbl">Coords</span><span class="dp-val" style="font-family:monospace;font-size:9.5px">${b.latitud.toFixed(5)}, ${b.longitud.toFixed(5)}</span></div>`:''}
+      <div class="dp-row"><span class="dp-lbl">Altitud</span><span class="dp-val">${b.altitud?b.altitud+' m':'—'}</span></div>
+      <div class="dp-row"><span class="dp-lbl">Tipo sitio</span><span class="dp-val">${v(b.tipo_sitio)}</span></div>
+    </div>
+    <div class="dp-sec">
+      <div class="dp-stitle">🧑‍💼 Responsable</div>
+      <div class="dp-row"><span class="dp-lbl">Nombre</span><span class="dp-val">${v(b.responsable_nombre)}</span></div>
+      <div class="dp-row"><span class="dp-lbl">Teléfono</span><span class="dp-val">${v(b.responsable_telefono)?'<a href="tel:'+b.responsable_telefono+'" style="color:var(--a)">'+b.responsable_telefono+'</a>':'—'}</span></div>
+      <div class="dp-row"><span class="dp-lbl">Correo</span><span class="dp-val" style="font-size:9.5px">${v(b.responsable_email)?'<a href="mailto:'+b.responsable_email+'" style="color:var(--a)">'+b.responsable_email+'</a>':'—'}</span></div>
+    </div>
+    <div class="dp-sec">
+      <div class="dp-stitle">👤 Integrantes (${ints.length})</div>
+      <div class="dp-ints">${intsHtml}</div>
+    </div>`;
+
+  panel.classList.add('open');
+}
+
+function cerrarDetalle() {
+  document.getElementById('detail-panel').classList.remove('open');
+  selectedId = null; brigadaActual = null;
+  renderLista();
+}
+
+function zoomBrigadaActual() {
+  if (brigadaActual?.latitud && brigadaActual?.longitud) {
+    if (!mapaInicializado) {
+      switchTab('mapa');
+      setTimeout(() => {
+        mapa.setView([brigadaActual.latitud, brigadaActual.longitud], 15, {animate:true});
+      }, 150);
+    } else {
+      switchTab('mapa');
+      mapa.setView([brigadaActual.latitud, brigadaActual.longitud], 15, {animate:true});
+    }
+  }
+}
+
+// ── ESTADÍSTICAS ─────────────────────────────────────
+function actualizarStats() {
+  const t = todasBrigadas.length;
+  const ints  = todasBrigadas.reduce((s,b)=>s+(b.num_integrantes||0),0);
+  const cap   = todasBrigadas.filter(b=>b.capacitacion==='si').length;
+  const fuera = todasBrigadas.filter(b=>b.dentro_poligono===false).length;
+  const muns  = new Set(todasBrigadas.map(b=>b.municipio).filter(Boolean)).size;
+  document.getElementById('st-brig').textContent  = t;
+  document.getElementById('st-ints').textContent  = ints;
+  document.getElementById('st-cap').textContent   = cap;
+  document.getElementById('st-fuera').textContent = fuera;
+  document.getElementById('tb-total').textContent = t;
+  document.getElementById('tb-ints').textContent  = ints;
+  document.getElementById('hero-total').textContent = t;
+  document.getElementById('hero-muns').textContent  = muns;
+}
+
+function actualizarMunicipios() {
+  const map = {};
+  todasBrigadas.forEach(b => { if(b.municipio) map[b.municipio]=(map[b.municipio]||0)+1; });
+  const sorted = Object.entries(map).sort((a,b)=>b[1]-a[1]);
+  const max = sorted[0]?.[1]||1;
+  document.getElementById('mun-list').innerHTML = sorted.map(([m,n])=>`
+    <div class="mun-row">
+      <div style="flex:1">
+        <div class="mun-name">${m}</div>
+        <div class="mun-bar-wrap"><div class="mun-bar-fill" style="width:${Math.round(n/max*100)}%"></div></div>
+      </div>
+      <div class="mun-n">${n}</div>
+    </div>`).join('')||'<div style="padding:12px;font-size:11px;color:var(--gt)">Sin datos</div>';
+}
+
+// ── EDICIÓN ──────────────────────────────────────────
+function abrirEdicion() {
+  if (brigadaActual) abrirEdicionBrigada(brigadaActual.id);
+}
+
+function abrirEdicionBrigada(id) {
+  const b = todasBrigadas.find(x => x.id === id);
+  if (!b) return;
+  brigadaActual = b;
+  document.getElementById('e-nombre_predio').value = b.nombre_predio || '';
+  document.getElementById('e-municipio').value     = b.municipio || '';
+  document.getElementById('e-tipo_predio').value   = b.tipo_predio || '';
+  document.getElementById('e-fecha_registro').value      = (b.fecha_registro||'').split('T')[0];
+  document.getElementById('e-region').value              = b.region || '';
+  document.getElementById('e-oficio_predio').value       = b.oficio_predio || '';
+  document.getElementById('e-responsable_nombre').value  = b.responsable_nombre || '';
+  document.getElementById('e-responsable_telefono').value= b.responsable_telefono || '';
+  document.getElementById('e-responsable_email').value   = b.responsable_email || '';
+  document.getElementById('e-brigada_nombre').value      = b.brigada_nombre || '';
+  document.getElementById('e-brigada_tipo').value        = b.brigada_tipo || '';
+  document.getElementById('e-capacitacion').value        = b.capacitacion || '';
+  document.getElementById('e-latitud').value             = b.latitud || '';
+  document.getElementById('e-longitud').value            = b.longitud || '';
+  document.getElementById('e-altitud').value             = b.altitud || '';
+  document.getElementById('e-tipo_sitio').value          = b.tipo_sitio || 'base';
+  document.getElementById('e-dentro_poligono').value     = String(b.dentro_poligono !== false);
+  document.getElementById('e-descripcion_sitio').value   = b.descripcion_sitio || '';
+
+  const list = document.getElementById('int-edit-list');
+  list.innerHTML = '';
+  intEditIdx = 0;
+  const ints = Array.isArray(b.integrantes) ? b.integrantes : [];
+  ints.forEach(i => addIntEditRow(i.nombre, i.puesto, i.telefono, i.curp));
+  if (!ints.length) addIntEditRow();
+
+  openModal('me');
+}
+
+function addIntEditRow(nombre='', puesto='', telefono='', curp='') {
+  intEditIdx++;
+  const id = intEditIdx;
+  const opts = PUESTOS.map(p=>`<option value="${p}" ${p===puesto?'selected':''}>${p}</option>`).join('');
+  const div = document.createElement('div');
+  div.className = 'int-edit-card';
+  div.id = `ier-${id}`;
+  div.innerHTML = `
+    <div class="int-num">${id}</div>
+    <div class="fg" style="padding-right:28px">
+      <div class="fd sf"><label class="lb">Nombre</label>
+        <input type="text" id="ie_nom_${id}" value="${nombre}" placeholder="Nombre completo"></div>
+      <div class="fg fg2">
+        <div class="fd"><label class="lb">Puesto</label>
+          <select id="ie_pue_${id}"><option value="">— Puesto —</option>${opts}</select></div>
+        <div class="fd"><label class="lb">Teléfono</label>
+          <input type="tel" id="ie_tel_${id}" value="${telefono}" placeholder="618 XXX XXXX"></div>
+      </div>
+      <div class="fd sf"><label class="lb">CURP</label>
+        <input type="text" id="ie_cur_${id}" value="${curp}" placeholder="CURP" maxlength="18" style="text-transform:uppercase"></div>
+    </div>
+    <button class="btn-del-int" onclick="delIntEditRow(${id})" title="Eliminar">✕</button>`;
+  document.getElementById('int-edit-list').appendChild(div);
+}
+
+function delIntEditRow(id) {
+  document.getElementById(`ier-${id}`)?.remove();
+  document.querySelectorAll('#int-edit-list .int-edit-card').forEach((el, i) => {
+    el.querySelector('.int-num').textContent = i+1;
+  });
+}
+
+function getIntegrantesEdit() {
+  return Array.from(document.querySelectorAll('#int-edit-list .int-edit-card')).map(el => {
+    const id = el.id.replace('ier-','');
+    return {
+      nombre:   document.getElementById(`ie_nom_${id}`)?.value?.trim()||'',
+      puesto:   document.getElementById(`ie_pue_${id}`)?.value||'',
+      telefono: document.getElementById(`ie_tel_${id}`)?.value?.trim()||'',
+      curp:     document.getElementById(`ie_cur_${id}`)?.value?.trim()||''
+    };
+  }).filter(i => i.nombre);
+}
+
+async function guardarEdicion() {
+  if (!sbClient || !brigadaActual) return;
+  const nom   = document.getElementById('e-responsable_nombre').value.trim();
+  const tel   = document.getElementById('e-responsable_telefono').value.trim();
+  const bnom  = document.getElementById('e-brigada_nombre').value.trim();
+  const fecha = document.getElementById('e-fecha_registro').value;
+  if (!nom||!tel||!bnom||!fecha) { toast('Completa los campos requeridos (*)','warn'); return; }
+
+  const btn = document.getElementById('btn-guardar-edit');
+  btn.disabled = true; btn.innerHTML = '<div class="spin-sm"></div> Guardando…';
+
+  const integrantes = getIntegrantesEdit();
+  const updates = {
+    fecha_registro:       fecha,
+    region:               document.getElementById('e-region').value,
+    oficio_predio:        document.getElementById('e-oficio_predio').value.trim(),
+    responsable_nombre:   nom,
+    responsable_telefono: tel,
+    responsable_email:    document.getElementById('e-responsable_email').value.trim(),
+    brigada_nombre:       bnom,
+    brigada_tipo:         document.getElementById('e-brigada_tipo').value,
+    capacitacion:         document.getElementById('e-capacitacion').value,
+    latitud:              parseFloat(document.getElementById('e-latitud').value)||null,
+    longitud:             parseFloat(document.getElementById('e-longitud').value)||null,
+    altitud:              parseFloat(document.getElementById('e-altitud').value)||null,
+    tipo_sitio:           document.getElementById('e-tipo_sitio').value,
+    dentro_poligono:      document.getElementById('e-dentro_poligono').value === 'true',
+    descripcion_sitio:    document.getElementById('e-descripcion_sitio').value.trim(),
+    integrantes:          integrantes,
+    num_integrantes:      integrantes.length,
+  };
+
+  try {
+    const { error } = await sbClient
+      .from('brigadas_forestales')
+      .update(updates)
+      .eq('id', brigadaActual.id);
+    if (error) throw error;
+
+    const i = todasBrigadas.findIndex(b => b.id === brigadaActual.id);
+    if (i !== -1) { todasBrigadas[i] = { ...todasBrigadas[i], ...updates }; brigadaActual = todasBrigadas[i]; }
+    actualizarStats(); actualizarMunicipios(); aplicarFiltros();
+    if (mapaInicializado) renderMarcadores();
+    mostrarDetalle(brigadaActual);
+    closeModal('me');
+    toast('✅ Brigada actualizada correctamente','success');
+  } catch(e) {
+    toast('Error al guardar: ' + e.message,'error');
+  } finally {
+    btn.disabled = false; btn.innerHTML = '💾 Guardar';
+  }
+}
+
+async function confirmarEliminar() {
+  if (!brigadaActual) return;
+  const nombre = brigadaActual.brigada_nombre || brigadaActual.nombre_predio || 'esta brigada';
+  if (!confirm(`¿Eliminar permanentemente "${nombre}"?\n\nEsta acción no se puede deshacer.`)) return;
+
+  const btn = document.getElementById('btn-guardar-edit');
+  btn.disabled = true;
+
+  try {
+    const { error } = await sbClient
+      .from('brigadas_forestales')
+      .delete()
+      .eq('id', brigadaActual.id);
+    if (error) throw error;
+
+    todasBrigadas = todasBrigadas.filter(b => b.id !== brigadaActual.id);
+    if (mapaInicializado && marcadores[brigadaActual.id]) brigLayer.removeLayer(marcadores[brigadaActual.id]);
+    delete marcadores[brigadaActual.id];
+    actualizarStats(); actualizarMunicipios(); aplicarFiltros();
+    cerrarDetalle();
+    closeModal('me');
+    toast('🗑 Brigada eliminada','warn');
+  } catch(e) {
+    toast('Error al eliminar: ' + e.message,'error');
+  } finally { btn.disabled = false; }
+}
+
+// ── EXPORTAR CSV ─────────────────────────────────────
+function exportarCSV() {
+  if (!todasBrigadas.length) { toast('Sin datos para exportar','warn'); return; }
+  const cols = ['folio','fecha_registro','nombre_predio','municipio','localidad','tipo_predio',
+    'region','oficio_predio','id_nucleo_ran','brigada_nombre','brigada_tipo','capacitacion',
+    'num_integrantes','latitud','longitud','altitud','tipo_sitio','dentro_poligono',
+    'fuera_confirmado','responsable_nombre','responsable_telefono','responsable_email'];
+  const hdr  = cols.join(',');
+  const rows = todasBrigadas.map(b => cols.map(c => {
+    const v = b[c];
+    if (v===null||v===undefined) return '';
+    if (typeof v==='boolean') return v?'SI':'NO';
+    const s = String(v);
+    return (s.includes(',')||s.includes('"')||s.includes('\n'))?`"${s.replace(/"/g,'""')}"`:s;
+  }).join(','));
+  const blob = new Blob(['\ufeff'+[hdr,...rows].join('\n')], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `SEMARNAT_MRV_Brigadas_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  toast(`${todasBrigadas.length} registros exportados`,'success');
+}
+
+// ── UTILIDADES ───────────────────────────────────────
+function setLoading(v, txt='') {
+  document.getElementById('loading').classList.toggle('hidden',!v);
+  if(txt) document.getElementById('loading-txt').textContent = txt;
+}
+function toast(msg, tipo='info') {
+  const icons={success:'✅',error:'❌',info:'ℹ️',warn:'⚠️'};
+  const d = document.createElement('div');
+  d.className = `toast ${tipo}`;
+  d.innerHTML = `<span style="font-size:13px;flex-shrink:0">${icons[tipo]||'ℹ️'}</span><span>${msg}</span>`;
+  document.getElementById('toasts').appendChild(d);
+  setTimeout(()=>d.remove(), 5000);
+}
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── INIT ────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Cerrar overlays al click afuera
+  document.querySelectorAll('.ov').forEach(o =>
+    o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); })
+  );
+  // Iniciar conexión
+  const waitLib = setInterval(() => {
+    if (window.supabase?.createClient) { clearInterval(waitLib); inicializarConexion(); }
+  }, 80);
+  setTimeout(() => { clearInterval(waitLib); inicializarConexion(); }, 3500);
+
+  // Swipe down en detail-sheet para cerrar
+  let startY = 0;
+  const sheet = document.getElementById('detail-panel');
+  sheet.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+  sheet.addEventListener('touchend', e => {
+    const dy = e.changedTouches[0].clientY - startY;
+    if (dy > 80) cerrarDetalle();
+  }, { passive: true });
+});
+</script>
+</body>
+</html>
