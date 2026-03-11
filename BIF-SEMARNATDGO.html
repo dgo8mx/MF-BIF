@@ -766,7 +766,8 @@ function suscribirRealtime() {
       if (p.new.latitud && p.new.longitud) agregarMarcador(p.new, true);
       toast(`🆕 ${p.new.brigada_nombre} · ${p.new.municipio}`, 'success');
     })
-    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'brigadas_forestales' }, p => {
+    
+.on('postgres_changes', { event:'UPDATE', schema:'public', table:'brigadas_forestales' }, p => {
       const i = todasBrigadas.findIndex(b => b.id === p.new.id);
       if (i !== -1) {
         todasBrigadas[i] = { ...todasBrigadas[i], ...p.new };
@@ -775,7 +776,16 @@ function suscribirRealtime() {
         toast(`🔄 Actualizado: ${p.new.brigada_nombre}`, 'info');
       }
     })
+    .on('postgres_changes', { event:'DELETE', schema:'public', table:'brigadas_forestales' }, p => {  // ← AGREGAR
+      const id = p.old.id;
+      todasBrigadas = todasBrigadas.filter(b => b.id !== id);
+      brigadasFiltradas = brigadasFiltradas.filter(b => b.id !== id);
+      if (marcadores[id]) { brigLayer.removeLayer(marcadores[id]); delete marcadores[id]; }
+      if (selectedId === id) { selectedId = null; brigadaActual = null; cerrarDetalle(); }
+      actualizarStats(); actualizarMunicipios(); aplicarFiltros();
+    })
     .subscribe();
+ 
 }
 
 // ── FILTROS ──────────────────────────────────────────
