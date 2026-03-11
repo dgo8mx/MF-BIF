@@ -1133,13 +1133,19 @@ async function confirmarEliminar() {
       .eq('id', brigadaActual.id);
     if (error) throw error;
 
-    todasBrigadas = todasBrigadas.filter(b => b.id !== brigadaActual.id);
-    if (marcadores[brigadaActual.id]) brigLayer.removeLayer(marcadores[brigadaActual.id]);
-    delete marcadores[brigadaActual.id];
+    
+    const idEliminado = brigadaActual.id;
+    todasBrigadas = todasBrigadas.filter(b => b.id !== idEliminado);
+    brigadasFiltradas = brigadasFiltradas.filter(b => b.id !== idEliminado);  // ← AGREGAR
+    if (marcadores[idEliminado]) brigLayer.removeLayer(marcadores[idEliminado]);
+    delete marcadores[idEliminado];
+    selectedId = null;        // ← AGREGAR
+    brigadaActual = null;     // ← AGREGAR
     actualizarStats(); aplicarMunicipios_update(); aplicarFiltros();
     cerrarDetalle();
     closeModal('me');
     toast('🗑 Brigada eliminada','warn');
+    
   } catch(e) {
     toast('Error al eliminar: ' + e.message,'error');
   } finally { btn.disabled = false; }
