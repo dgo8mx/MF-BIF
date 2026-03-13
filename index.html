@@ -292,8 +292,11 @@ input[readonly]{background:#f5f5f5;color:var(--gt);cursor:default}
     <div class="ns" id="ns-4"><span class="sn2">4</span> Infraestructura</div>
     <div class="nc">
       <span class="cd" id="conn-dot"></span>
-      <button class="bn" onclick="openModal('mc')">⚙ Conexion</button>
-      <button class="bn" onclick="exportarJSON()">⬇ Exportar</button>
+      <button class="bn" >⚙ Conexion</button>
+	  
+	  <!--Codigo para que no aparezca en boton: onclick="openModal('mc')-->
+      
+	  <button class="bn" onclick="exportarJSON()">⬇ Exportar</button>
     </div>
   </div></nav>
 </header>
@@ -461,8 +464,8 @@ input[readonly]{background:#f5f5f5;color:var(--gt);cursor:default}
         <input type="text" id="localidad" placeholder="Nombre de la localidad">
       </div>
             <div class="fd">
-        <label class="lb">Oficio de Autorizacion / SEMARNAT</label>
-        <input type="text" id="oficio_predio" placeholder="Oficio del predio">
+        <label class="lb">Oficio de Autorizacion / SEMARNAT <span class="rq">*</span></label>
+        <input type="text" id="oficio_predio" placeholder="Oficio del predio" required>
       </div>
     </div>
 
@@ -477,16 +480,16 @@ input[readonly]{background:#f5f5f5;color:var(--gt);cursor:default}
         <input type="tel" id="resp_tel" placeholder="618 XXX XXXX" required>
       </div>
       <div class="fd">
-        <label class="lb">Correo Electrónico</label>
-        <input type="email" id="resp_email" placeholder="correo@institución.gob.mx">
+        <label class="lb">Correo Electrónico<span class="rq">*</span></label>
+        <input type="email" id="resp_email" placeholder="correo@institución.gob.mx" required>
       </div>
       <div class="fd">
         <label class="lb">CURP</label>
         <input type="text" id="resp_curp" placeholder="CURP o clave interna">
       </div>
       <div class="fd">
-        <label class="lb">Número de RFN (Registro Forestal Nacional)</label>
-        <input type="text" id="resp_registro" placeholder="No. de registro">
+        <label class="lb">Número de RFN (Registro Forestal Nacional)<span class="rq">*</span></label>
+        <input type="text" id="resp_registro" placeholder="No. de registro" Required>
       </div>
     </div>
   </div>
@@ -517,8 +520,8 @@ input[readonly]{background:#f5f5f5;color:var(--gt);cursor:default}
         <input type="number" id="brigada_anio" placeholder="Ej. 2020" min="2000" max="2030">
       </div>
       <div class="fd">
-        <label class="lb">Tipo de Brigada</label>
-        <select id="brigada_tipo">
+        <label class="lb">Tipo de Brigada<span class="rq">*</span></label>
+        <select id="brigada_tipo" required>
           <option value="">— Seleccionar —</option>
           <option value="ejidal">Ejidal</option>
           <option value="comunitaria">Comunitaria</option>
@@ -650,11 +653,10 @@ input[readonly]{background:#f5f5f5;color:var(--gt);cursor:default}
       <div class="fd"><label class="lb">Datum</label>
         <select id="datum">
           <option value="wgs84">WGS84</option>
-          <option value="itrf2008">ITRF2008</option>
-        </select>
+                 </select>
       </div>
       <div class="fd sf"><label class="lb">Descripción del Sitio / Referencias</label>
-        <textarea id="desc_sitio" placeholder="Describe cómo llegar, referencias de acceso..."></textarea>
+        <textarea id="desc_sitio" placeholder="Describe cómo llegar, referencias de acceso, Señalar en el caso de que el Ejido o Comunidad cuente con mas de 1 brigada, mencionar la ubicacion principal o el centro de control..."></textarea>
       </div>
     </div>
   </div>
@@ -778,14 +780,14 @@ input[readonly]{background:#f5f5f5;color:var(--gt);cursor:default}
         <option value="">— Seleccionar —</option>
         <option value="EJIDO">Ejido</option>
         <option value="COMUNIDAD">Comunidad</option>
-        <option value="otro">Otro</option>
+        <option value="otro">Predio Particular</option>
       </select>
     </div>
     <div class="fd"><label class="lb">Superficie aproximada (ha)</label>
       <input type="number" id="nn-sup" placeholder="0.00" min="0" step="0.01">
     </div>
     <div class="fd s2"><label class="lb">Observaciones / Motivo</label>
-      <textarea id="nn-obs" placeholder="Motivo por el que no aparece en el RAN, características, etc." style="min-height:60px"></textarea>
+      <textarea id="nn-obs" placeholder="Motivo por el que no aparece en el RAN, características, Conjunto predial u otra modalidad de razon social." style="min-height:60px"></textarea>
     </div>
   </div>
   <div class="moa">
@@ -853,10 +855,13 @@ let nucleosCustom = JSON.parse(localStorage.getItem('mrv_nucleos_custom') || '[]
 
 const PUESTOS=['Jefe de Brigada','Combatiente Forestal',
   'Presidente del Comisariado/Bienes Comunales','Consejo de Vigilancia','Mesa directiva','Apoyo Logístico','Otro'];
+
 const CAT=['— Categoría —','Herramienta manual','Herramienta motorizada',
   'Equipo de protección personal','Vehículo','Equipo de comunicación',
   'Equipo médico / primeros auxilios','Bodega / Instalación','Otro','Equipo Tecnico'];
+
 const EST=['Bueno','Regular','Deteriorado','Fuera de servicio'];
+
 const INFRA_DEF=[
   ['Herramienta manual','Pala forestal','','Bueno',''],
   ['Herramienta manual','Hacha / machetilla','','Bueno',''],
@@ -865,7 +870,7 @@ const INFRA_DEF=[
   ['Equipo de protección personal','Guantes resistentes','','Bueno',''],
   ['Vehículo','Camioneta de transporte','','',''],
   ['Equipo de comunicación','Radio portátil','','Bueno',''],
-  ['Equipo Técnico','GPS','','Bueno','']
+  ['Equipo Tecnico','GPS','','Bueno',''],
 ];
 
 // ════════════════════════════════════════════════════════
