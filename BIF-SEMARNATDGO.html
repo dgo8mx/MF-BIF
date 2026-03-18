@@ -1102,16 +1102,19 @@ async function guardarEdicion() {
     tipo_sitio:           document.getElementById('e-tipo_sitio').value,
     dentro_poligono:      document.getElementById('e-dentro_poligono').value === 'true',
     descripcion_sitio:    document.getElementById('e-descripcion_sitio').value.trim(),
-    integrantes:          integrantes,
+    integrantes:          JSON.stringify(integrantes),
     num_integrantes:      integrantes.length,
   };
 
   try {
-    const { error } = await sbClient
-      .from('brigadas_forestales')
-      .update(updates)
-      .eq('id', brigadaActual.id);
-    if (error) throw error;
+const { data, error } = await sbClient   // ← cambia const {error} por const {data, error}
+  .from('brigadas_forestales')
+  .update(updates)
+  .eq('id', brigadaActual.id)
+  .select();                             // ← agrega .select()
+
+console.log('UPDATE result:', data, error); // ← agrega esto
+if (error) throw error;
 
     // Actualizar local
     const i = todasBrigadas.findIndex(b => b.id === brigadaActual.id);
