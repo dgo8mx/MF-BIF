@@ -1063,15 +1063,12 @@ function delIntEditRow(id) {
 }
 
 function getIntegrantesEdit() {
-  return Array.from(document.querySelectorAll('#int-edit-tbody tr')).map(tr => {
-    const id = tr.id.replace('ier-','');
-    return {
-      nombre:   document.getElementById(`ie_nom_${id}`)?.value?.trim()||'',
-      puesto:   document.getElementById(`ie_pue_${id}`)?.value||'',
-      telefono: document.getElementById(`ie_tel_${id}`)?.value?.trim()||'',
-      curp:     document.getElementById(`ie_cur_${id}`)?.value?.trim()||''
-    };
-  }).filter(i => i.nombre);
+  return Array.from(document.querySelectorAll('#int-edit-tbody tr')).map(tr => ({
+    nombre:   tr.querySelector('input[id^="ie_nom_"]')?.value?.trim() || '',
+    puesto:   tr.querySelector('select[id^="ie_pue_"]')?.value || '',
+    telefono: tr.querySelector('input[id^="ie_tel_"]')?.value?.trim() || '',
+    curp:     tr.querySelector('input[id^="ie_cur_"]')?.value?.trim() || ''
+  })).filter(i => i.nombre);
 }
 
 async function guardarEdicion() {
@@ -1102,7 +1099,7 @@ async function guardarEdicion() {
     tipo_sitio:           document.getElementById('e-tipo_sitio').value,
     dentro_poligono:      document.getElementById('e-dentro_poligono').value === 'true',
     descripcion_sitio:    document.getElementById('e-descripcion_sitio').value.trim(),
-    integrantes:          JSON.stringify(integrantes),
+    integrantes:          integrantes,
     num_integrantes:      integrantes.length,
   };
 
@@ -1118,7 +1115,10 @@ if (error) throw error;
 
     // Actualizar local
     const i = todasBrigadas.findIndex(b => b.id === brigadaActual.id);
-    if (i !== -1) { todasBrigadas[i] = { ...todasBrigadas[i], ...updates }; brigadaActual = todasBrigadas[i]; }
+    if (i !== -1) {
+  todasBrigadas[i] = { ...todasBrigadas[i], ...updates, integrantes: integrantes };
+  brigadaActual = todasBrigadas[i];
+    }
     actualizarStats(); aplicarFiltros(); renderMarcadores();
     mostrarDetalle(brigadaActual);
     closeModal('me');
