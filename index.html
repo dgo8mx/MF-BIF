@@ -876,14 +876,14 @@ const INFRA_DEF=[
 // ════════════════════════════════════════════════════════
 //  INIT
 // ════════════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('fecha_registro').value = new Date().toISOString().split('T')[0];
   const yr = new Date().getFullYear();
   document.getElementById('temporada-txt').textContent = yr;
   document.getElementById('temp-badge').textContent = yr;
-  initFolio();
   initMapa();
-  cargarConfig();
+  cargarConfig();           // conecta sbClient primero
+  await initFolio();        // consulta el último folio en la BD para asignar consecutivo correcto
   addIntegrante();
   INFRA_DEF.forEach(r => addInfraRow(...r));
   document.querySelectorAll('.ov').forEach(o => {
@@ -891,11 +891,40 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-function initFolio() {
-  const saved = parseInt(localStorage.getItem('mrv_folio') || '0') + 1;
-  localStorage.setItem('mrv_folio', saved);
-  document.getElementById('folio-display').textContent = `DGO-BIF-${String(saved).padStart(3,'0')}`;
-  folioNum = saved;
+async function initFolio() {
+  // Mostrar folio provisional mientras se consulta la BD
+  document.getElementById('folio-display').textContent = 'DGO-BIF-···';
+
+  let siguienteNum = 1;
+
+  // Intentar obtener el último folio desde Supabase
+  if (sbClient) {
+    try {
+      const { data, error } = await sbClient
+        .from('brigadas_forestales')
+        .select('folio')
+        .order('folio', { ascending: false })
+        .limit(1);
+
+      if (!error && data && data.length > 0) {
+        // Extraer el número del folio (formato DGO-BIF-NNN)
+        const match = data[0].folio?.match(/DGO-BIF-(\d+)/i);
+        if (match) {
+          siguienteNum = parseInt(match[1]) + 1;
+        }
+      }
+    } catch (e) {
+      console.warn('No se pudo consultar el último folio en Supabase, usando localStorage como respaldo:', e);
+    }
+  }
+
+  // Respaldo: si el valor de BD es menor que el local, usar el local (evita retrocesos)
+  const localNum = parseInt(localStorage.getItem('mrv_folio') || '0') + 1;
+  siguienteNum = Math.max(siguienteNum, localNum);
+
+  localStorage.setItem('mrv_folio', siguienteNum);
+  folioNum = siguienteNum;
+  document.getElementById('folio-display').textContent = `DGO-BIF-${String(siguienteNum).padStart(3,'0')}`;
 }
 
 // ════════════════════════════════════════════════════════
